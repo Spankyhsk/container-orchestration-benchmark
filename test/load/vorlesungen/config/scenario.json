@@ -1,0 +1,27 @@
+{
+  "name": "vorlesung",
+  "distribution": {
+    "activeStudent": 0.45,
+    "passiveStudent": 0.18,
+    "browsingStudent": 0.18,
+    "tutor": 0.045,
+    "professor": 0.045,
+    "idle": 0.1
+  },
+  "thinkTime": {
+    "activeStudent": [2, 5],
+    "passiveStudent": [3, 7],
+    "browsingStudent": [3, 8],
+    "tutor": [2, 6],
+    "professor": [5, 10],
+    "idle": [10, 20]
+  },
+  "roleMapping": {
+    "activeStudent": "student",
+    "passiveStudent": "student",
+    "browsingStudent": "student",
+    "tutor": "tutor",
+    "professor": "professor",
+    "idle": "casual"
+  }
+}

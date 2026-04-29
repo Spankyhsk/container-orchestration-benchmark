@@ -1,0 +1,12 @@
+{
+  "name": "login",
+  "distribution": {
+    "casualUser": 1.0
+  },
+  "thinkTime": {
+    "casualUser": 1
+  },
+  "roleMapping": {
+    "casualUser":  "casual"
+  }
+}

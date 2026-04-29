@@ -1,0 +1,21 @@
+{
+  "name": "klausur",
+  "distribution": {
+    "exam": 0.6,
+    "browsing": 0.25,
+    "professor": 0.1,
+    "idle": 0.05
+  },
+  "thinkTime": {
+    "exam": [2, 5],
+    "browsing": [5, 10],
+    "professor": [5, 10],
+    "idle": [10, 20]
+  },
+  "roleMapping": {
+    "exam": "student",
+    "browsing": "student",
+    "professor": "professor",
+    "idle": "casual"
+  }
+}
