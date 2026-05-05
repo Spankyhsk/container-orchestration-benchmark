@@ -2,15 +2,19 @@
   "smoke": {
     "vus": 5,
     "duration": "1m",
-    "users": 10
+    "users": 10,
+    "setupTimeout": "120s",
+    "smokeRole": "exam"
   },
   "averageLoad": {
     "vus": 100,
     "duration": "10m",
-    "users": 100
+    "users": 100,
+    "setupTimeout": "120s"
   },
   "stress": {
     "users": 200,
+    "setupTimeout": "120s",
     "stages": [
       { "duration": "2m", "target": 200 },
       { "duration": "5m", "target": 200 },
@@ -19,6 +23,7 @@
   },
   "spike": {
     "users": 500,
+    "setupTimeout": "120s",
     "stages": [
       { "duration": "1m", "target": 50 },
       { "duration": "10s", "target": 500 },
@@ -27,6 +32,7 @@
   },
   "breakpoint": {
     "users": 500,
+    "setupTimeout": "120s",
     "stages": [
       { "duration": "2m", "target": 50 },
       { "duration": "2m", "target": 100 },
@@ -38,7 +44,8 @@
   "soak": {
     "vus": 100,
     "duration": "2h",
-    "users": 100
+    "users": 100,
+    "setupTimeout": "120s"
   }
 
 }

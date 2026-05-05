@@ -1,8 +1,5 @@
-import http from "k6/http";
-import { API } from "test/load/shared/api.js";
-
-export function login(email, password) {
-    const res = http.post(API.auth, JSON.stringify({
+export function login(email, password, api) {
+    const res = http.post(api.auth.signup, JSON.stringify({
         email,
         password
     }), {
@@ -14,10 +11,10 @@ export function login(email, password) {
     return body.accessToken;
 }
 
-export function loginAdmin(){
+export function loginAdmin(api){
     let email = "admin@mail.com";
     let password = "admin123"
 
-    return login(email, password)
+    return login(email, password, api)
 }
 

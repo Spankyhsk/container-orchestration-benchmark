@@ -1,11 +1,11 @@
-# 🧪 Test Documentation: Update Test - API update
+# 🧪 Test Documentation: Update Test - K6Api update
 
 ---
 
 ## 🧾 1. Allgemeine Informationen
 
 **Test Name:**
-Update Test - API update
+Update Test - K6Api update
 
 **Kategorie:**
  Availability
@@ -25,7 +25,7 @@ beides
 ## 🎓 2. Szenario
 
 **Beschreibung:**
-Ein Bug wurde aus der API gepatched und deployed
+Ein Bug wurde aus der K6Api gepatched und deployed
 
 **Nutzerverhalten / Ablauf:**
 

@@ -1,10 +1,11 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { API } from "../../shared/api"
+import { K6Api } from "../../shared/api/k6-api"
 
 export function casualUser(user, thinkTime){
-    const res = http.post(API.auth, JSON.stringify({
+    const res = http.post(K6Api.auth.signup, JSON.stringify({
         email: user.email,
+        username: user.username,
         password: user.password
     }), {
         headers: { "Content-Type": "application/json" }
