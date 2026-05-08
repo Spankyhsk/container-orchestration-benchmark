@@ -5,7 +5,7 @@ import { execSync } from "child_process";
 import { createUsers } from "./shared/lifecycle/create-users.js";
 import { setupUsers } from "./shared/lifecycle/setup-users.js";
 import {cleanupCreatedUsers, cleanupUsers} from "./shared/lifecycle/cleanup-users.js";
-import { waitForIdle } from "./shared/helpers/helpers.js";
+import { waitForIdle } from "./shared/helpers/waitForIdle.js";
 import { loginAdmin } from "./shared/helpers/auth.js";
 import { API } from "./shared/api/node-api.js";
 import {buildUsers} from "./shared/helpers/buildUsers.js";
