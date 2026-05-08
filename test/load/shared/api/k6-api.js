@@ -14,7 +14,9 @@ export const K6Api = {
         getSubscriptionList: `${apiUrl}/subscriptions`
     },
     lectures: {
-        getCourses: (userId, semesterId, lectureId) => `${apiUrl}/users/${userId}/semesters/${semesterId}/lectures/${lectureId}/courses`
+        getCourses: (userId, semesterId, lectureId) => `${apiUrl}/users/${userId}/semesters/${semesterId}/lectures/${lectureId}/courses`,
+        getLectures: (userId, semesterId) => `${apiUrl}/users/${userId}/semesters/${semesterId}/lectures`,
+        getLectureList: `${apiUrl}/lectures`
     },
     taskProgress: {
         getChapter: (userId, semesterId, lectureId, courseId, chapterId) => `${apiUrl}/taskProgresses/user/${userId}/semester/${semesterId}/lecture/${lectureId}/course/${courseId}/chapter/${chapterId}`,
@@ -22,9 +24,26 @@ export const K6Api = {
     },
     semesters: {
         getView: `${apiUrl}/semesters/view`,
-        getSemesters: (semesterId) => `${apiUrl}/semesters/${semesterId}`
+        getSemesters: (semesterId) => `${apiUrl}/semesters/${semesterId}`,
+        getSemesterList: `${apiUrl}/semesters`
     },
     courses: {
-        getChapter: (courseId, chapterId) => `${apiUrl}/courses/${courseId}/${chapterId}`
+        getChapter: (courseId, chapterId) => `${apiUrl}/courses/${courseId}/${chapterId}`,
+        getCourseSubscribedList: `${apiUrl}/courses/subscribed/list`
+    },
+    quizduel: {
+        getQuizduel: `${apiUrl}/quizduel`,
+    },
+    quiztasksets: {
+        getQuiztasksetsList: `${apiUrl}/quiztasksets`,
+    },
+    courseDeadline: {
+        getCoursesDeadlineSub: `${apiUrl}/course-deadlines/subscribed`
+    },
+    quizduelDeadline: {
+        getQuizduellDeadlineSub: `${apiUrl}/quiz-duel-deadlines/subscribed`
+    },
+    exam: {
+        getListUserExam: (userId) => `${apiUrl}/user/${userId}`,
     }
 };
