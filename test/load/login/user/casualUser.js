@@ -1,6 +1,6 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { K6Api } from "../../shared/api/k6-api"
+import { K6Api } from "../../shared/api/k6-api.js"
 
 export function casualUser(user, thinkTime){
     const res = http.post(K6Api.auth.signup, JSON.stringify({

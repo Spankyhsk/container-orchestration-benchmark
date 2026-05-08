@@ -4,13 +4,13 @@ import { execSync } from "child_process";
 
 import { createUsers } from "./shared/lifecycle/create-users.js";
 import { setupUsers } from "./shared/lifecycle/setup-users.js";
-import { cleanupUsers } from "./shared/lifecycle/cleanup-users.js";
+import {cleanupCreatedUsers, cleanupUsers} from "./shared/lifecycle/cleanup-users.js";
 import { waitForIdle } from "./shared/helpers/helpers.js";
 import { loginAdmin } from "./shared/helpers/auth.js";
 import { API } from "./shared/api/node-api.js";
-import {buildUsers} from "./shared/helpers/buildUsers";
+import {buildUsers} from "./shared/helpers/buildUsers.js";
 
-const ROOT = process.cwd();
+const ROOT = path.resolve(process.cwd(), "..", "..");
 
 async function run() {
 
@@ -86,21 +86,25 @@ async function run() {
         const resultFile = path.join(resultDir, `${testType}.json`);
 
         const usersFile = path.join(ROOT, "test/load", testName, "users.json");
-        const roleRegistryPath = path.join(ROOT, "test/load", testName, "user", "role-registry.json");
 
         // --------------------
         // PIPELINE START
         // --------------------
-        if(isAuthTest){
-            console.log("Auth Load Test Mode")
-            const users = await buildUsers({count: profile.users})
+        let users;   // <- WICHTIG
 
-        } else{
+        if (isAuthTest) {
+            console.log("Auth Load Test Mode");
+
+            users = await buildUsers({
+                count: profile.users
+            });
+
+        } else {
             console.log("Admin login...");
             adminToken = loginAdmin({ api });
 
             console.log("Creating users...");
-            const users = await createUsers({
+            users = await createUsers({
                 api,
                 count: profile.users
             });
@@ -142,7 +146,7 @@ async function run() {
                     LOADPROFILES_PATH: loadProfilesPath,
                     THRESHOLDS_PATH: thresholdsPath,
 
-                    ROLE_REGISTRY_PATH: roleRegistryPath,
+                    TEST_NAME: testName,
                     USERS_PATH: usersFile
                 }
             }
@@ -164,11 +168,20 @@ async function run() {
             console.log("Cleaning up users...");
 
             try {
-                await cleanupUsers({
-                    api,
-                    users: preparedUsers,
-                    adminToken
-                });
+                if(isAuthTest){
+                    await cleanupCreatedUsers({
+                        api,
+                        users: preparedUsers,
+                        adminToken
+                    });
+                }else{
+                    await cleanupUsers({
+                        api,
+                        users: preparedUsers,
+                        adminToken
+                    });
+                }
+
             } catch (cleanupErr) {
                 console.error("CLEANUP FAILED:", cleanupErr);
             }

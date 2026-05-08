@@ -1,8 +1,9 @@
 import { SharedArray } from 'k6/data';
+import {loadRoleRegistry} from "../shared/helpers/load-role-registry";
 
 const scenario = JSON.parse(open(__ENV.SCENARIO_PATH));
 const profiles = JSON.parse(open(__ENV.LOADPROFILES_PATH));
-const thresholds = JSON.parse(open(__ENV.THRESHOLDS));
+const thresholds = JSON.parse(open(__ENV.THRESHOLDS_PATH));
 
 export const options = {
     vus: profiles.stress.stages,
@@ -10,7 +11,9 @@ export const options = {
     setupTimeout: profiles.stress.setupTimeout
 };
 
-const roleRegistry = JSON.parse(open(__ENV.ROLE_REGISTRY_PATH));
+const testName = __ENV.TEST_NAME;
+
+const roleRegistry = loadRoleRegistry(testName);
 
 const users = new SharedArray('users', () =>
     JSON.parse(open(__ENV.USERS_PATH))

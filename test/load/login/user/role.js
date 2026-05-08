@@ -1,4 +1,4 @@
-import {casualUser} from "./casualUser";
+import {casualUser} from "./casualUser.js";
 
 export const ROLE_REGISTRY = {
     casualUser: casualUser
