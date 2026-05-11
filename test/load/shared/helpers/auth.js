@@ -1,20 +1,20 @@
-export function login(email, password, api) {
-    const res = http.post(api.auth.signup, JSON.stringify({
-        email,
-        password
-    }), {
-        headers: { "Content-Type": "application/json" }
-    });
+import axios from "axios";
 
-    const body = res.json();
+export async function loginAdmin(api) {
 
-    return body.accessToken;
-}
+    const res = await axios.post(
+        api.auth.login,
+        {
+            email: "admin@mail.com",
+            password: "admin123"
+        },
+        {
+            headers: {
+                "Content-Type": "application/json"
+            }
+        }
+    );
 
-export function loginAdmin(api){
-    let email = "admin@mail.com";
-    let password = "admin123"
-
-    return login(email, password, api)
+    return res.data.accessToken;
 }
 

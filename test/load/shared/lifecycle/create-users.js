@@ -1,26 +1,28 @@
+import axios from "axios";
+
 export async function createUsers({ count, api }) {
 
     const users = [];
 
     for (let i = 1; i <= count; i++) {
 
-        const res = await fetch(api.auth.signup, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                email: `student${i}@mail.com`,
-                username: `student${i}`,
-                password: "Passwort123"
-            })
+        const res = await axios.post(api.auth.signup, {
+            email: `student${i}@mail.com`,
+            username: `student${i}`,
+            password: "Passwort123"
+        }, {
+            headers: {
+                "Content-Type": "application/json"
+            }
         });
 
-        const data = await res.json();
+        const data = res.data;
 
         users.push({
             email: `student${i}@mail.com`,
             password: "Passwort123",
-            id: data.id,
-            token: data.token
+            id: data._id,
+            token: data.accessToken
         });
     }
 

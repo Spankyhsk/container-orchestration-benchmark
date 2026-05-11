@@ -1,10 +1,19 @@
+import axios from "axios";
 import {
     calculateRoleCounts,
     assignScenarioRolesToUsers,
     shuffle
 } from "../core/role-utils.js";
 
-export async function setupUsers({users, scenario, api, adminToken, mode, forcedRole, isAuthTest}) {
+export async function setupUsers({
+                                     users,
+                                     scenario,
+                                     api,
+                                     adminToken,
+                                     mode,
+                                     forcedRole,
+                                     isAuthTest
+                                 }) {
 
     // --------------------
     // 1. ROLE STRATEGY
@@ -28,28 +37,35 @@ export async function setupUsers({users, scenario, api, adminToken, mode, forced
         users = assignScenarioRolesToUsers(users, counts);
     }
 
-    // optional shuffle (immer sinnvoll)
     shuffle(users);
 
     // --------------------
     // 2. APPLY PERMISSIONS
     // --------------------
-    if(isAuthTest){
-        return users
-    }
 
     for (const user of users) {
 
-        await fetch(api.setup.userPermissions(user.id), {
-            method: "PATCH",
-            headers: {
-                Authorization: `Bearer ${adminToken}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                permissions: scenario.roleMapping[user.scenarioRole]
-            })
-        });
+        const url = api.setup.userPermissions(user.id);
+
+        try {
+            const res = await axios.patch(
+                url,
+                {
+                    permissions: scenario.roleMapping[user.scenarioRole]
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${adminToken}`,
+                        "Content-Type": "application/json"
+                    }
+                }
+            );
+
+
+        } catch (err) {
+            console.log("SETUP STATUS:", err.response?.status);
+            console.log("SETUP BODY:", err.response?.data);
+        }
     }
 
     return users;

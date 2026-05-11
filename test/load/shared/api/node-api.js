@@ -1,5 +1,6 @@
-export const API = (baseUrl) => {
+import axios from "axios";
 
+export const API = (baseUrl) => {
 
     const apiBase = `http://api.${baseUrl}`;
     const aiBase = `http://ai-api.${baseUrl}`;
@@ -21,8 +22,7 @@ export const API = (baseUrl) => {
         },
 
         health: async () => {
-            const res = await fetch(`${apiBase}/health`);
-            return res;
+            return await axios.get(`${apiBase}/health/ready`);
         }
     };
 };

@@ -1,4 +1,13 @@
 {
-  "http_req_duration": ["p(95)<800"],
-  "http_req_failed": ["rate<0.02"]
+  "http_req_duration": [
+    "p(95)<800",
+    "p(99)<1200",
+    "avg<400"
+  ],
+  "http_req_failed": [
+    "rate<0.01"
+  ],
+  "http_reqs": [
+    "rate>20"
+  ]
 }

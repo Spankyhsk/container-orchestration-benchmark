@@ -27,3 +27,8 @@
 + Playwright
 + Chaos Mesh/LitmusChaos
 + Pumba/Toxipeoxy
+
+## Benchmark ausführen
+````powershell
+python scripts/benchmark.py --env <docker/k3s> --scenario <login/vorlesung/...> --testType <smoke/averageLoad/...> --run <Runnummer>
+````

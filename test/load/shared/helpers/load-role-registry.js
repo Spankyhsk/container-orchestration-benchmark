@@ -1,6 +1,6 @@
-import { roleRegistry as loginRegistry } from "../../login/user/role.js";
-import { roleRegistry as klausurRegistry } from "../../klausur/user/roles.js";
-import { roleRegistry as vorlesungenRegistry } from "../../vorlesungen/user/role.js";
+import { ROLE_REGISTRY as loginRegistry } from "../../login/user/role.js";
+import {ROLE_REGISTRY as klausurRegistry} from "../../klausur/user/roles.js";
+import { ROLE_REGISTRY as vorlesungenRegistry } from "../../vorlesungen/user/role.js";
 
 const registries = {
     login: loginRegistry,

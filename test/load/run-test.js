@@ -4,19 +4,24 @@ import { execSync } from "child_process";
 
 import { createUsers } from "./shared/lifecycle/create-users.js";
 import { setupUsers } from "./shared/lifecycle/setup-users.js";
-import {cleanupCreatedUsers, cleanupUsers} from "./shared/lifecycle/cleanup-users.js";
+import { cleanupUsers} from "./shared/lifecycle/cleanup-users.js";
 import { waitForIdle } from "./shared/helpers/waitForIdle.js";
 import { loginAdmin } from "./shared/helpers/auth.js";
 import { API } from "./shared/api/node-api.js";
-import {buildUsers} from "./shared/helpers/buildUsers.js";
+import { fileURLToPath } from "url";
 
-const ROOT = path.resolve(process.cwd(), "..", "..");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const ROOT = path.resolve(__dirname, "..", "..");
 
 async function run() {
 
     const testName = process.argv[2];   // login, klausur
     const envType = process.argv[3];    // docker, k3s
     const testType = process.argv[4];   // smoke, spike, averageLoad
+    const runId = process.argv[5] || "0"; // fallback Nummer
+    const withAnnotate = process.argv[6] || "0";
 
     if (!testName || !envType || !testType) {
         throw new Error("Usage: node run-test.js <testName> <env> <testType>");
@@ -44,9 +49,20 @@ async function run() {
         fs.readFileSync(envFile, "utf8")
             .split("\n")
             .forEach(line => {
-                const [k, v] = line.split("=");
-                if (k && v) process.env[k.trim()] = v.trim();
+                const trimmed = line.trim();
+
+                if (!trimmed || trimmed.startsWith("#")) return;
+
+                const index = trimmed.indexOf("=");
+                if (index === -1) return;
+
+                const key = trimmed.slice(0, index).trim();
+                const value = trimmed.slice(index + 1).trim();
+
+                process.env[key] = value;
             });
+
+        console.log("BASE_URL RAW:", JSON.stringify(process.env.BASE_URL));
 
         api = API(process.env.BASE_URL);
 
@@ -80,10 +96,10 @@ async function run() {
             `${testType}.js`
         );
 
-        const resultDir = path.join(ROOT, "results", envType, "load", testName);
+        const resultDir = path.join(ROOT, "results", envType, "load", testName, testType);
         fs.mkdirSync(resultDir, { recursive: true });
 
-        const resultFile = path.join(resultDir, `${testType}.json`);
+        const resultFile = path.join(resultDir, `${testType}_${runId}`);
 
         const usersFile = path.join(ROOT, "test/load", testName, "users.json");
 
@@ -92,23 +108,17 @@ async function run() {
         // --------------------
         let users;   // <- WICHTIG
 
-        if (isAuthTest) {
-            console.log("Auth Load Test Mode");
+        console.log("Admin login...");
 
-            users = await buildUsers({
-                count: profile.users
-            });
+        adminToken = await loginAdmin(api)
 
-        } else {
-            console.log("Admin login...");
-            adminToken = loginAdmin({ api });
+        console.log("Creating users...");
 
-            console.log("Creating users...");
-            users = await createUsers({
-                api,
-                count: profile.users
-            });
-        }
+        users = await createUsers({
+            api,
+            count: profile.users
+        });
+
 
         console.log("Setting up users...");
         preparedUsers = await setupUsers({
@@ -134,23 +144,31 @@ async function run() {
         // --------------------
         console.log("Running k6...");
 
-        execSync(
-            `k6 run "${testFile}" --out json="${resultFile}"`,
-            {
-                stdio: "inherit",
-                env: {
-                    ...process.env,
+        let k6Env = {
+            ...process.env,
 
-                    // k6 INPUTS
-                    SCENARIO_PATH: scenarioPath,
-                    LOADPROFILES_PATH: loadProfilesPath,
-                    THRESHOLDS_PATH: thresholdsPath,
+            // k6 INPUTS
+            SCENARIO_PATH: scenarioPath,
+            LOADPROFILES_PATH: loadProfilesPath,
+            THRESHOLDS_PATH: thresholdsPath,
 
-                    TEST_NAME: testName,
-                    USERS_PATH: usersFile
-                }
-            }
-        );
+            TEST_NAME: testName,
+            USERS_PATH: usersFile,
+            RUNNUMBER: runId
+        };
+
+        const useSetupTeardown = withAnnotate === "1";
+
+        const cmd = useSetupTeardown
+            ? `k6 run "${testFile}" --out json="${resultFile}_raw.json" --summary-export="${resultFile}_summary.json"`
+            : `k6 run "${testFile}" --no-setup --no-teardown --out json="${resultFile}_raw.json" --summary-export="${resultFile}_summary.json"`;
+
+        console.log("Lifecycle mode:", useSetupTeardown ? "FULL (setup+teardown)" : "MINIMAL (no setup/teardown)");
+
+        execSync(cmd, {
+            stdio: "inherit",
+            env: k6Env
+        });
 
         console.log("Load test finished");
 
@@ -168,19 +186,11 @@ async function run() {
             console.log("Cleaning up users...");
 
             try {
-                if(isAuthTest){
-                    await cleanupCreatedUsers({
-                        api,
-                        users: preparedUsers,
-                        adminToken
-                    });
-                }else{
                     await cleanupUsers({
                         api,
                         users: preparedUsers,
                         adminToken
                     });
-                }
 
             } catch (cleanupErr) {
                 console.error("CLEANUP FAILED:", cleanupErr);

@@ -1,0 +1,165 @@
+{
+  "title": "Reliability Dashboard (Docker vs Kubernetes)",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 3,
+  "refresh": "5s",
+
+  "annotations": {
+    "list": [
+      {
+        "name": "k6 Test Events",
+        "enable": true,
+        "iconColor": "red"
+      }
+    ]
+  },
+
+  "panels": [
+
+    {
+      "type": "timeseries",
+      "title": "CPU Usage (Container)",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total[1m])) by (name)",
+          "legendFormat": "{{name}}"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Memory Usage (Container)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "container_memory_usage_bytes",
+          "legendFormat": "{{name}}"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Network RX/TX (Container)",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(container_network_receive_bytes_total[1m])",
+          "legendFormat": "RX {{name}}"
+        },
+        {
+          "expr": "rate(container_network_transmit_bytes_total[1m])",
+          "legendFormat": "TX {{name}}"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Disk IO (Container)",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(container_fs_reads_bytes_total[1m])",
+          "legendFormat": "Read {{name}}"
+        },
+        {
+          "expr": "rate(container_fs_writes_bytes_total[1m])",
+          "legendFormat": "Write {{name}}"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Node CPU Load",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "node_load1",
+          "legendFormat": "load1"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Node Memory Usage",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
+          "legendFormat": "available ratio"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Availability (Success Rate)",
+      "gridPos": { "x": 0, "y": 40, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "1 - rate(http_req_failed[5m])",
+          "legendFormat": "availability"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Failure Rate (Stability Indicator)",
+      "gridPos": { "x": 12, "y": 40, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(http_req_failed[1m])",
+          "legendFormat": "errors/sec"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Recovery Indicator (Load Stabilization)",
+      "gridPos": { "x": 0, "y": 48, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "avg_over_time(rate(http_req_duration[1m])[5m:1m])",
+          "legendFormat": "latency trend"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Success vs Failure Ratio",
+      "gridPos": { "x": 12, "y": 48, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(http_reqs[5m]) - rate(http_req_failed[5m])",
+          "legendFormat": "successful requests"
+        },
+        {
+          "expr": "rate(http_req_failed[5m])",
+          "legendFormat": "failed requests"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "System Stability Score (Custom)",
+      "gridPos": { "x": 0, "y": 56, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "(1 - rate(http_req_failed[5m])) * (1 / (1 + node_load1))",
+          "legendFormat": "stability score"
+        }
+      ]
+    }
+
+  ]
+}

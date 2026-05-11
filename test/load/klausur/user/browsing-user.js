@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check, group } from 'k6';
 import { think } from "../../shared/helpers/helpers.js"
-import {K6Api} from "../../shared/api/k6-api";
+import {K6Api} from "../../shared/api/k6-api.js";
 
 export function browsingUser(user, thinkTime){
     const params = {

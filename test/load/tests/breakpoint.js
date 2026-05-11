@@ -1,5 +1,6 @@
 import { SharedArray } from 'k6/data';
 import { loadRoleRegistry } from '../shared/helpers/load-role-registry.js';
+import { annotate } from  '../shared/helpers/annotate.js';
 
 
 const scenario = JSON.parse(open(__ENV.SCENARIO_PATH));
@@ -20,6 +21,10 @@ const users = new SharedArray('users', () =>
     JSON.parse(open(__ENV.USERS_PATH))
 );
 
+export function setup(){
+    annotate("START", "breakpoint", testName);
+}
+
 //Jeder VM wird zufällig einen User zugewiesen
 export default function () {
 
@@ -35,4 +40,8 @@ export default function () {
         user,
         thinkTime: scenario.thinkTime[user.scenarioRole]
     });
+}
+
+export function teardown() {
+    annotate("END", "breakpoint", testName);
 }

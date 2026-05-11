@@ -7,7 +7,8 @@ const frontendUrl = `http://${BASE_URL}`;
 export const K6Api = {
     auth: {
         getUser: `${apiUrl}/auth/user`,
-        isAuthenticated: `${apiUrl}/auth/is-authenticated`
+        isAuthenticated: `${apiUrl}/auth/is-authenticated`,
+        login: `${apiUrl}/auth/signin`
     },
     subscriptions: {
         getSubscription: (userId) => `${apiUrl}/subscriptions/user/${userId}`,
