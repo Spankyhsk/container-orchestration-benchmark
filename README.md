@@ -30,5 +30,27 @@
 
 ## Benchmark ausführen
 ````powershell
-python scripts/benchmark.py --env <docker/k3s> --scenario <login/vorlesung/...> --testType <smoke/averageLoad/...> --run <Runnummer>
+python -m src.benchmark --env docker --testClass load --scenario login --testType smoke --run 0
+````
+
+## Grafana von Kubernetes erreichbar machen
+````powershell
+sudo kubectl port-forward svc/monitoring-grafana 3000:80 -n monitoring
+````
+````powershell
+sudo kubectl port-forward svc/monitoring-kube-prometheus-prometheus 9090:9090 -n monitoring
+````
+
+## Annotaion manuell löschen
+````powershell
+Invoke-RestMethod -Uri "http://localhost:3000/api/annotations" -Headers @{Authorization="Bearer YOUR_TOKEN"}
+````
+Löschen:
+````powershell
+Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/api/annotations/17" -Headers @{Authorization="Bearer YOUR_TOKEN"}
+````
+
+Alle Löschen:
+````powershell
+(Invoke-RestMethod -Uri "http://localhost:3000/api/annotations" -Headers @{Authorization="Bearer YOUR_TOKEN"}) | ForEach-Object { Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/api/annotations/$($_.id)" -Headers @{Authorization="Bearer YOUR_TOKEN"} }
 ````

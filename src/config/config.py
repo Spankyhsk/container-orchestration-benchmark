@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 def load_environment(env):
 
     base_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..")
+        os.path.join(os.path.dirname(__file__), "..", "..")
     )
 
     env_file = os.path.join(base_dir, f".env.{env}")

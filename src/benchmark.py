@@ -1,15 +1,27 @@
 import subprocess
 
-from grafana_api import get_test_window
-from prometheus_export import export_metrics
-from analyze_results import analyze_results
-from generate_plots import generate_plots
+from src.exporters.grafana_api import get_test_window
+from src.exporters.grafana_api import cleanup_annotations
+from src.exporters.prometheus_export import export_metrics
+from src.analyze.analyze_results import analyze_results
+from src.analyze.generate_plots import generate_plots
 
 
-def run_benchmark(scenario, env, testType, run_id):
+def run_benchmark(scenario, env, testType, run_id, testClass):
+
+    print("=== CLEANUP OLD ANNOTATIONS ===")
+
+    cleanup_annotations(
+        env=env,
+        scenario=scenario,
+        testType=testType,
+        run_id=run_id,
+        testClass=testClass
+    )
 
     print(f"\n=== Running Benchmark ===")
     print(f"ENV: {env}")
+    print(f"TESTCLASS: {testClass}")
     print(f"SCENARIO: {scenario}")
     print(f"TESTTYPE: {testType}")
     print(f"RUN: {run_id}")
@@ -38,7 +50,8 @@ def run_benchmark(scenario, env, testType, run_id):
         scenario=scenario,
         env=env,
         testType=testType,
-        run_id=run_id
+        run_id=run_id,
+        testClass=testClass
     )
 
     print(f"\nDetected Window:")
@@ -54,6 +67,7 @@ def run_benchmark(scenario, env, testType, run_id):
         scenario=scenario,
         testType=testType,
         run_id=run_id,
+        testClass=testClass,
         start=start,
         end=end
     )
@@ -69,14 +83,16 @@ def run_benchmark(scenario, env, testType, run_id):
         scenario=scenario,
         env=env,
         testType=testType,
-        run_id=run_id
+        run_id=run_id,
+        testClass=testClass
     )
 
     generate_plots(
         scenario=scenario,
         env=env,
         testType=testType,
-        run_id=run_id
+        run_id=run_id,
+        testClass=testClass
     )
 
 
@@ -87,6 +103,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--env", required=True)
+    parser.add_argument("--testClass", required=True)
     parser.add_argument("--scenario", required=True)
     parser.add_argument("--testType", required=True)
     parser.add_argument("--run", required=True)
@@ -97,5 +114,6 @@ if __name__ == "__main__":
         scenario=args.scenario,
         env=args.env,
         testType=args.testType,
-        run_id=args.run
+        run_id=args.run,
+        testClass=args.testClass
     )

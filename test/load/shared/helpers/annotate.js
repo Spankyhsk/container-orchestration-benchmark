@@ -14,6 +14,7 @@ export function annotate(text, type, scenario) {
                 `scenario:${scenario}`,
                 `env:${ENV}`,
                 `type:${type}`,
+                `class:load`,
                 `run:${RUNNUMBER}`
             ]
         }),
