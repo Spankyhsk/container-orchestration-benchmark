@@ -3,7 +3,7 @@ import { check, group } from 'k6';
 import { think } from "../../shared/helpers/helpers.js"
 import { K6Api } from "../../shared/api/k6-api.js";
 
-export function idleUser(user, thinkTime){
+export function idleUser(user, thinkTime, ctx){
     const params = {
         headers: {
             Authorization: `Bearer ${user.token}`,

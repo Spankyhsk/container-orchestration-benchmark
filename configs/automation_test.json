@@ -1,0 +1,19 @@
+{
+  "name": "testo",
+
+  "mode": "collect",
+
+  "envs": ["docker", "k3s"],
+
+  "testClass": "load",
+
+  "scenarios": ["vorlesungen"],
+
+  "testTypes": ["averageLoad"],
+
+  "runsPerTest": 1,
+
+  "sleepSeconds": 5,
+
+  "scenarioCooldownSeconds": 0
+}

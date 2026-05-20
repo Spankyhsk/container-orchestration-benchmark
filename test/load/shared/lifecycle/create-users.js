@@ -18,6 +18,7 @@ export async function createUsers({ count, api }) {
 
         const data = res.data;
 
+
         users.push({
             email: `student${i}@mail.com`,
             password: "Passwort123",
@@ -25,6 +26,7 @@ export async function createUsers({ count, api }) {
             token: data.accessToken
         });
     }
+
 
     return users;
 }

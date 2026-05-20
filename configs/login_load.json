@@ -1,0 +1,19 @@
+{
+  "name": "Login Load test",
+
+  "mode": "collect",
+
+  "envs": ["docker", "k3s"],
+
+  "testClass": "load",
+
+  "scenarios": ["login"],
+
+  "testTypes": ["smoke", "averageLoad", "stress", "spike", "breakpoint"],
+
+  "runsPerTest": 3,
+
+  "sleepSeconds": 30,
+
+  "scenarioCooldownSeconds": 0
+}

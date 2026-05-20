@@ -1,5 +1,5 @@
 import { sleep} from 'k6';
-function randomBetween(min, max) {
+export function randomBetween(min, max) {
     return Math.random() * (max - min) + min;
 }
 

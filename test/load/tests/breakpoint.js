@@ -1,6 +1,7 @@
 import { SharedArray } from 'k6/data';
 import { loadRoleRegistry } from '../shared/helpers/load-role-registry.js';
 import { annotate } from  '../shared/helpers/annotate.js';
+import {createExam} from "../shared/helpers/createExam.js";
 
 
 const scenario = JSON.parse(open(__ENV.SCENARIO_PATH));
@@ -22,11 +23,19 @@ const users = new SharedArray('users', () =>
 );
 
 export function setup(){
+    let ctx = {};
+
+    if (testName === "klausur") {
+        ctx = createExam();
+    }
+
     annotate("START", "breakpoint", testName);
+
+    return ctx;
 }
 
 //Jeder VM wird zufällig einen User zugewiesen
-export default function () {
+export default function (ctx) {
 
     const user = users[(__VU - 1) % users.length];
 
@@ -36,10 +45,11 @@ export default function () {
         throw new Error(`Unknown role: ${user.scenarioRole}`);
     }
 
-    handler({
+    handler(
         user,
-        thinkTime: scenario.thinkTime[user.scenarioRole]
-    });
+        scenario.thinkTime[user.scenarioRole],
+        ctx
+    );
 }
 
 export function teardown() {

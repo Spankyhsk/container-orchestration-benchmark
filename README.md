@@ -28,6 +28,11 @@
 + Chaos Mesh/LitmusChaos
 + Pumba/Toxipeoxy
 
+## Benchmark automation ausführen
+````powershell
+powershell -File run_benchmarks.ps1 configs/login_load.json
+````
+
 ## Benchmark ausführen
 ````powershell
 python -m src.benchmark --env docker --testClass load --scenario login --testType smoke --run 0

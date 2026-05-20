@@ -84,7 +84,9 @@ def run_benchmark(scenario, env, testType, run_id, testClass):
         env=env,
         testType=testType,
         run_id=run_id,
-        testClass=testClass
+        testClass=testClass,
+        startTime=start,
+        endTime=end
     )
 
     generate_plots(

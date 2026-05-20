@@ -4,11 +4,12 @@ import { execSync } from "child_process";
 
 import { createUsers } from "./shared/lifecycle/create-users.js";
 import { setupUsers } from "./shared/lifecycle/setup-users.js";
-import { cleanupUsers} from "./shared/lifecycle/cleanup-users.js";
+import { cleanup} from "./shared/lifecycle/cleanup.js";
 import { waitForIdle } from "./shared/helpers/waitForIdle.js";
 import { loginAdmin } from "./shared/helpers/auth.js";
 import { API } from "./shared/api/node-api.js";
 import { fileURLToPath } from "url";
+import {createProfessor} from "./shared/helpers/createProfessor.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +37,7 @@ async function run() {
 
     try {
         const isAuthTest = testName === "login";
+        const isExamTest = testName === "klausur"
 
 
         // --------------------
@@ -119,6 +121,9 @@ async function run() {
             count: profile.users
         });
 
+        if(isExamTest){
+            await createProfessor(api, adminToken)
+        }
 
         console.log("Setting up users...");
         preparedUsers = await setupUsers({
@@ -172,6 +177,9 @@ async function run() {
 
         console.log("Load test finished");
 
+        console.log("Waiting for system stabilization...");
+        await waitForIdle({ api });
+
     } catch (err) {
 
         console.error("PIPELINE FAILED:", err);
@@ -181,20 +189,13 @@ async function run() {
         // --------------------
         // CLEANUP
         // --------------------
-        if (preparedUsers.length > 0 && adminToken) {
+        try {
+            console.log(`Running remote cleanup for env: ${envType}`);
 
-            console.log("Cleaning up users...");
+            cleanup(envType);
 
-            try {
-                    await cleanupUsers({
-                        api,
-                        users: preparedUsers,
-                        adminToken
-                    });
-
-            } catch (cleanupErr) {
-                console.error("CLEANUP FAILED:", cleanupErr);
-            }
+        } catch (cleanupErr) {
+            console.error("CLEANUP FAILED:", cleanupErr);
         }
 
         console.log("PIPELINE FINISHED");

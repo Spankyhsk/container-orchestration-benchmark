@@ -24,19 +24,23 @@ def calculate_load_score(summary):
     # - langsame APIs
     # - Überlastung
     # - schlechte Skalierung
+    #
+    # Latenz ist eines der wichtigsten
+    # Performance-Signale.
     # =================================================
 
-    if summary.get("latency_p95"):
+    latency_p95 = summary.get("latency_p95")
 
-        # Sehr hohe Latenz
-        # -> starke Verschlechterung
-        if summary["latency_p95"] > 1200:
+    if latency_p95 is not None:
+
+        if latency_p95 > 1200:
             score -= 30
 
-        # Mittlere hohe Latenz
-        # -> moderate Verschlechterung
-        elif summary["latency_p95"] > 800:
+        elif latency_p95 > 800:
             score -= 15
+
+        elif latency_p95 > 400:
+            score -= 5
 
     # =================================================
     # ERROR RATE (Fehlerrate)
@@ -52,61 +56,87 @@ def calculate_load_score(summary):
     # - Timeouts
     # - Crashes
     # - Überlastung
+    #
+    # Fehler sind der wichtigste
+    # Reliability-Indikator.
     # =================================================
 
-    if summary.get("error_rate"):
+    error_rate = summary.get("error_rate")
 
-        # Mehr als 5 % Fehler
-        # -> sehr kritisch
-        if summary["error_rate"] > 0.05:
+    if error_rate is not None:
+
+        if error_rate > 0.05:
             score -= 40
 
-        # Mehr als 1 % Fehler
-        # -> problematisch
-        elif summary["error_rate"] > 0.01:
+        elif error_rate > 0.01:
             score -= 20
+
+        elif error_rate > 0:
+            score -= 5
 
     # =================================================
     # CONTAINER CPU USAGE
     # =================================================
     #
     # Prüft die maximale CPU-Auslastung
-    # aller Container.
+    # aller Container relativ zur
+    # verfügbaren Cluster-/Host-Kapazität.
     #
-    # Werte nahe 1.0 bedeuten:
-    # -> CPU fast vollständig ausgelastet
+    # Werte:
+    # 1.0 = 100 % CPU-Auslastung
     #
     # Hohe CPU-Auslastung kann zu:
     # - längeren Antwortzeiten
     # - throttling
     # - Instabilität
     # führen.
+    #
+    # CPU ist wichtig, aber weniger kritisch
+    # als Fehler oder Speicherprobleme.
     # =================================================
 
-    if summary.get("cpu_max"):
+    cpu_max = summary.get("cpu_max")
 
-        # CPU-Auslastung über 95 %
-        if summary["cpu_max"] > 0.95:
+    if cpu_max is not None:
+
+        if cpu_max > 0.95:
+            score -= 15
+
+        elif cpu_max > 0.85:
             score -= 10
+
+        elif cpu_max > 0.70:
+            score -= 5
 
     # =================================================
     # CONTAINER MEMORY USAGE
     # =================================================
     #
     # Prüft die maximale RAM-Auslastung
-    # aller Container.
+    # aller Container relativ zur
+    # verfügbaren Cluster-/Host-Kapazität.
     #
     # Hohe RAM-Auslastung kann:
     # - OOMKills verursachen
     # - Container abstürzen lassen
     # - Swapping auslösen
+    #
+    # Memory-Probleme sind oft kritischer
+    # als CPU-Probleme.
     # =================================================
 
-    if summary.get("memory_max"):
+    memory_max = summary.get("memory_max")
 
-        # Mehr als 95 % RAM-Auslastung
-        if summary["memory_max"] > 0.95:
+    if memory_max is not None:
+
+        if memory_max > 0.95:
+            score -= 20
+
+        elif memory_max > 0.85:
             score -= 10
+
+        elif memory_max > 0.75:
+            score -= 5
 
     # =================================================
     # NODE CPU USAGE
@@ -119,64 +149,151 @@ def calculate_load_score(summary):
     # - gesamter Host ist ausgelastet
     # - Scheduling-Probleme möglich
     # - alle Container betroffen
+    #
+    # Node CPU erkennt Infrastruktur-
+    # Überlastung.
     # =================================================
 
-    if summary.get("node_cpu_max"):
+    node_cpu_max = summary.get("node_cpu_max")
 
-        # Node CPU über 95 %
-        if summary["node_cpu_max"] > 0.95:
+    if node_cpu_max is not None:
+
+        if node_cpu_max > 0.90:
             score -= 10
+
+        elif node_cpu_max > 0.80:
+            score -= 5
+
+        elif node_cpu_max > 0.70:
+            score -= 2
 
     # =================================================
     # NODE MEMORY USAGE
     # =================================================
     #
-    # Prüft die RAM-Auslastung
-    # der Nodes.
+    # Prüft den RAM-Verbrauch der Nodes.
     #
-    # Hohe Node-Memory-Auslastung kann:
-    # - Evictions verursachen
-    # - Pods neu starten
-    # - Instabilität erzeugen
+    # Hohe Auslastung kann:
+    # - Pod Evictions verursachen
+    # - Instabilität im Cluster erzeugen
+    # - OOMKills triggern
+    #
+    # Node Memory ist besonders kritisch,
+    # da der gesamte Cluster betroffen sein kann.
     # =================================================
 
-    if summary.get("node_memory_max"):
+    node_memory_max = summary.get("node_memory_max")
 
-        # Node RAM über 95 %
-        if summary["node_memory_max"] > 0.95:
-            score -= 10
+    if node_memory_max is not None:
+
+        if node_memory_max > 0.95:
+            score -= 15
+
+        elif node_memory_max > 0.85:
+            score -= 8
+
+        elif node_memory_max > 0.75:
+            score -= 3
 
     # =================================================
     # NODE LOAD
     # =================================================
     #
-    # Prüft die Systemlast des Hosts.
+    # System Load zeigt:
+    # wie viele Prozesse auf CPU warten.
     #
-    # node_load misst:
-    # - wie viele Prozesse auf CPU warten
+    # Der Wert ist bereits pro CPU-Core
+    # normalisiert und daher zwischen
+    # Docker und Kubernetes vergleichbar.
     #
     # Hoher Load bedeutet:
-    # - CPU überlastet
-    # - zu viele gleichzeitige Prozesse
-    # - Scheduling-Engpässe
+    # - CPU Überlastung
+    # - Scheduling Engpässe
+    # - Wartende Prozesse
     #
-    # Ein Wert > 4 gilt hier als kritisch.
+    # Node Load ist ein unterstützendes
+    # Infrastruktur-Signal und wird daher
+    # schwächer gewichtet.
     # =================================================
 
-    if summary.get("node_load_max"):
+    node_load_max = summary.get("node_load_max")
 
-        # Sehr hohe Systemlast
-        if summary["node_load_max"] > 4:
+    if node_load_max is not None:
+
+        if node_load_max > 1.20:
+            score -= 5
+
+        elif node_load_max > 1.00:
+            score -= 3
+
+        elif node_load_max > 0.80:
+            score -= 1
+
+    # =================================================
+    # CONTAINER RESTARTS
+    # =================================================
+    #
+    # Prüft wie oft Container oder Pods
+    # neu gestartet wurden.
+    #
+    # Gründe für Restarts:
+    # - CrashLoopBackOff
+    # - OOMKilled
+    # - Node instability
+    # - Deployment issues
+    #
+    # Viele Restarts bedeuten:
+    # - Instabile Anwendung
+    # - Cluster Probleme
+    #
+    # Restarts sind ein starker
+    # Reliability-Indikator.
+    # =================================================
+
+    restarts = summary.get("restarts")
+
+    if restarts is not None:
+
+        if restarts >= 5:
+            score -= 30
+
+        elif restarts >= 3:
+            score -= 20
+
+        elif restarts >= 1:
             score -= 10
 
     # =================================================
-    # Finalen Score zurückgeben
+    # THROUGHPUT (leichtes Signal)
     # =================================================
     #
-    # Der Score darf niemals negativ werden.
+    # Prüft Requests pro Sekunde.
     #
-    # Beispiel:
-    # -20 -> wird zu 0
+    # Niedriger Throughput bedeutet nicht
+    # automatisch schlechte Reliability,
+    # da kleine Tests bewusst wenig Last
+    # erzeugen können.
+    #
+    # Daher wird Throughput nur sehr
+    # schwach gewichtet.
+    # =================================================
+
+    requests_rate = summary.get("requests_rate")
+
+    if requests_rate is not None:
+
+        if requests_rate < 1:
+            score -= 2
+
+        elif requests_rate < 3:
+            score -= 1
+
+    # =================================================
+    # FINAL SCORE
+    # =================================================
+    #
+    # Score wird nie negativ.
+    # Minimum ist 0.
     # =================================================
 
     return max(score, 0)

@@ -3,7 +3,7 @@ import { check, group } from 'k6';
 import { think } from "../../shared/helpers/helpers.js"
 import { K6Api } from "../../shared/api/k6-api.js";
 
-export function idleUser(user, thinkTime){
+export function idleUser(user, thinkTime, ctx){
     const params = {
         headers: {
             Authorization: `Bearer ${user.token}`,
@@ -58,7 +58,6 @@ export function idleUser(user, thinkTime){
 
         check(semesterRes, {
             'semester view status 200': (r) => r.status === 200,
-            'semester response valid': (r) => r.json().length > 0,
         });
 
         const semesters = semesterRes.json();

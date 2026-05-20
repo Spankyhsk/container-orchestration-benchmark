@@ -6,7 +6,35 @@ import ast
 
 
 # =================================================
-# INFRA METRICS LOADER (CSV)
+# METRIC SEMANTIC LAYER (MUSS ZU ANALYZE_RESULTS PASSEN)
+# =================================================
+
+METRIC_TYPE = {
+
+    # Cluster Utilization (0–1)
+    "cpu": "utilization_cluster",
+    "memory": "utilization_cluster",
+
+    # Node Utilization (0–1)
+    "node_cpu": "utilization_node",
+    "node_memory": "utilization_node",
+
+    # Node Load (ABSOLUT)
+    "node_load": "absolute",
+
+    # Throughput
+    "network_rx": "throughput",
+    "network_tx": "throughput",
+    "disk_read": "throughput",
+    "disk_write": "throughput",
+
+    # Counter
+    "restarts": "counter"
+}
+
+
+# =================================================
+# LOAD METRIC CSV
 # =================================================
 
 def load_metric(csv_path):
@@ -19,13 +47,6 @@ def load_metric(csv_path):
     if df.empty:
         return None
 
-    # -------------------------------------------------
-    # Metric Label Parsing (Prometheus style)
-    # -------------------------------------------------
-    # CSV enthält stringified dicts aus Prometheus labels
-    # -> wird hier wieder in dict zurück konvertiert
-    # -------------------------------------------------
-
     def safe_parse(x):
         try:
             return ast.literal_eval(x) if isinstance(x, str) else {}
@@ -34,49 +55,38 @@ def load_metric(csv_path):
 
     df["metric"] = df["metric"].apply(safe_parse)
 
-    # -------------------------------------------------
-    # Label Extraction (Grafana-like grouping)
-    # -------------------------------------------------
-
     def extract_label(metric):
 
         if not isinstance(metric, dict):
             return "all"
 
-        # -------------------------------------------------
-        # NODE METRICS (SPECIAL CASE)
-        # -------------------------------------------------
-        # node_memory / node_load sollen echte Node Namen zeigen
-        # -------------------------------------------------
+        service = metric.get("app") or metric.get("service")
+
+        if service:
+            return f"SERVICE:{service}"
 
         if "instance" in metric:
 
             instance = metric.get("instance", "")
 
-            # node-exporter-xxxxx → nur cleaner node name
             if "node-exporter" in instance:
-                return instance.split("-node-exporter")[0]
+                return f"NODE:{instance.split('-node-exporter')[0]}"
 
-            # fallback: IP cleanup
             if ":" in instance:
-                return instance.split(":")[0]
+                return f"NODE:{instance.split(':')[0]}"
 
-            return instance
+            return f"NODE:{instance}"
 
-        # stabile Priorität (wichtig für Kubernetes/Docker Mix)
         return (
-                metric.get("pod")
-                or metric.get("container")
-                or metric.get("name")
-                or metric.get("instance")
-                or "all"
+            "POD:" + metric.get("pod")
+            if metric.get("pod")
+            else "CONT:" + metric.get("container")
+            if metric.get("container")
+            else metric.get("name")
+                 or "all"
         )
 
     df["label"] = df["metric"].apply(extract_label)
-
-    # -------------------------------------------------
-    # Timestamp Conversion
-    # -------------------------------------------------
 
     df["timestamp"] = pd.to_datetime(
         pd.to_numeric(df["timestamp"], errors="coerce"),
@@ -85,23 +95,54 @@ def load_metric(csv_path):
         utc=True
     ).dt.tz_convert("Europe/Berlin")
 
-    # -------------------------------------------------
-    # Value Conversion
-    # -------------------------------------------------
-
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
 
-    # remove invalid rows
     df = df.dropna(subset=["timestamp", "value"])
-
-    # sort globally (important for line plotting)
     df = df.sort_values("timestamp")
 
     return df
 
 
 # =================================================
-# K6 RAW LOADER
+# PLOT METRIC (NORMALIZATION AWARE)
+# =================================================
+
+def plot_metric(df, title, ylabel, output, metric_type=None):
+
+    plt.figure(figsize=(14, 6))
+
+    for label, group in df.groupby("label"):
+
+        group = group.sort_values("timestamp")
+
+        plt.plot(group["timestamp"], group["value"], label=label)
+
+    # -----------------------------
+    # Y-SCALE LOGIC (IMPORTANT)
+    # -----------------------------
+
+    if metric_type in ["utilization_cluster", "utilization_node"]:
+        plt.ylim(0, 1.05)
+
+    plt.legend(
+        bbox_to_anchor=(1.05, 1),
+        loc="upper left",
+        fontsize=7
+    )
+
+    plt.title(title)
+    plt.xlabel("Time")
+    plt.ylabel(ylabel)
+
+    plt.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig(output)
+    plt.close()
+
+
+# =================================================
+# K6 TIMESERIES
 # =================================================
 
 def load_k6_raw(raw_path):
@@ -122,10 +163,6 @@ def load_k6_raw(raw_path):
     return pd.DataFrame(data)
 
 
-# =================================================
-# K6 TIMESERIES EXTRACTION
-# =================================================
-
 def extract_k6_timeseries(df, metric_name):
 
     metric_df = df[df["metric"] == metric_name].copy()
@@ -143,7 +180,6 @@ def extract_k6_timeseries(df, metric_name):
 
     metric_df["value"] = pd.to_numeric(metric_df["value"], errors="coerce")
 
-    # k6 timestamps are usually ISO strings OR epoch → safe parse
     metric_df["timestamp"] = pd.to_datetime(
         metric_df["timestamp"],
         errors="coerce",
@@ -155,61 +191,17 @@ def extract_k6_timeseries(df, metric_name):
     return metric_df.sort_values("timestamp")
 
 
-# =================================================
-# INFRA PLOT (Grafana-like multi-series)
-# =================================================
-
-def plot_metric(df, title, ylabel, output):
-
-    plt.figure(figsize=(14, 6))
-
-    # -------------------------------------------------
-    # One line per label (Grafana behavior)
-    # -------------------------------------------------
-    for label, group in df.groupby("label"):
-
-        group = group.sort_values("timestamp")
-
-        plt.plot(
-            group["timestamp"],
-            group["value"],
-            label=label
-        )
-
-    # -------------------------------------------------
-    # Legend outside (important for many containers)
-    # -------------------------------------------------
-    plt.legend(
-        bbox_to_anchor=(1.05, 1),
-        loc="upper left",
-        fontsize=7
-    )
-
-    plt.title(title)
-    plt.xlabel("Time")
-    plt.ylabel(ylabel)
-
-    plt.tight_layout()
-    plt.savefig(output)
-    plt.close()
-
-
-# =================================================
-# K6 PLOT (single series)
-# =================================================
-
 def plot_k6_metric(df, title, ylabel, output):
 
     plt.figure(figsize=(14, 6))
 
-    plt.plot(
-        df["timestamp"],
-        df["value"]
-    )
+    plt.plot(df["timestamp"], df["value"])
 
     plt.title(title)
     plt.xlabel("Time")
     plt.ylabel(ylabel)
+
+    plt.grid(True, alpha=0.3)
 
     plt.tight_layout()
     plt.savefig(output)
@@ -217,34 +209,31 @@ def plot_k6_metric(df, title, ylabel, output):
 
 
 # =================================================
-# MAIN ENTRY
+# MAIN
 # =================================================
 
 def generate_plots(scenario, env, testType, run_id, testClass):
 
     base = f"results/{env}/{testClass}/{scenario}/{testType}"
 
-    # =================================================
-    # INFRASTRUCTURE METRICS
-    # =================================================
-
     metrics = {
 
-        # Container metrics
-        "cpu": "Container CPU Usage",
-        "memory": "Container Memory Usage",
-        "network_rx": "Container Network RX",
-        "network_tx": "Container Network TX",
-        "disk_read": "Container Disk Read",
-        "disk_write": "Container Disk Write",
+        "cpu": ("Container CPU Usage", "ratio"),
+        "memory": ("Container Memory Usage", "ratio"),
 
-        # Node metrics
-        "node_cpu": "Node CPU Usage",
-        "node_memory": "Node Memory Usage",
-        "node_load": "Node Load"
+        "network_rx": ("Network RX", "bytes/s"),
+        "network_tx": ("Network TX", "bytes/s"),
+        "disk_read": ("Disk Read", "bytes/s"),
+        "disk_write": ("Disk Write", "bytes/s"),
+
+        "node_cpu": ("Node CPU Usage", "ratio"),
+        "node_memory": ("Node Memory Usage", "ratio"),
+        "node_load": ("Node Load", "load avg"),
+
+        "restarts": ("Container Restarts", "count")
     }
 
-    for metric, label in metrics.items():
+    for metric, (label, unit) in metrics.items():
 
         csv_path = f"{base}/{testType}_{run_id}_{metric}.csv"
 
@@ -255,17 +244,20 @@ def generate_plots(scenario, env, testType, run_id, testClass):
 
         output = f"{base}/{testType}_{run_id}_{metric}.png"
 
+        metric_type = METRIC_TYPE.get(metric)
+
         plot_metric(
             df=df,
             title=f"{label} - {env} - {scenario} - {testType}",
-            ylabel=label,
-            output=output
+            ylabel=unit,
+            output=output,
+            metric_type=metric_type
         )
 
         print(f"Generated plot: {output}")
 
     # =================================================
-    # K6 METRICS
+    # K6
     # =================================================
 
     raw_path = f"{base}/{testType}_{run_id}_raw.json"
@@ -273,38 +265,34 @@ def generate_plots(scenario, env, testType, run_id, testClass):
     k6_df = load_k6_raw(raw_path)
 
     if k6_df is None:
-        print("No k6 raw data found")
         return
 
-    # LATENCY
     latency = extract_k6_timeseries(k6_df, "http_req_duration")
 
     if latency is not None:
         plot_k6_metric(
             latency,
-            f"k6 Latency - {env} - {scenario} - {testType}",
+            f"k6 Latency - {env}",
             "ms",
             f"{base}/k6_latency_{run_id}.png"
         )
 
-    # REQUESTS
     reqs = extract_k6_timeseries(k6_df, "http_reqs")
 
     if reqs is not None:
         plot_k6_metric(
             reqs,
-            f"k6 Requests - {env} - {scenario} - {testType}",
+            f"k6 Requests - {env}",
             "count",
             f"{base}/k6_requests_{run_id}.png"
         )
 
-    # ERRORS
     errors = extract_k6_timeseries(k6_df, "http_req_failed")
 
     if errors is not None:
         plot_k6_metric(
             errors,
-            f"k6 Errors - {env} - {scenario} - {testType}",
+            f"k6 Errors - {env}",
             "rate",
             f"{base}/k6_errors_{run_id}.png"
         )

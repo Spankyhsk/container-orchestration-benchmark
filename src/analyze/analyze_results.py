@@ -9,10 +9,34 @@ from src.evaluation.scoring import (
 from src.evaluation.recommendations import generate_recommendations
 
 
-# -------------------------------------------------
-# TIMESERIES LOADER
-# -------------------------------------------------
+# =================================================
+# METRIC SEMANTIC LAYER
+# =================================================
+METRIC_TYPE = {
 
+    # Cluster Utilization (0–1)
+    "cpu": "cluster_utilization",
+    "memory": "cluster_utilization",
+
+    # Worst Node Utilization (0–1)
+    "node_cpu": "node_utilization",
+    "node_memory": "node_utilization",
+    "node_load": "node_utilization",
+
+    # Throughput
+    "network_rx": "throughput",
+    "network_tx": "throughput",
+    "disk_read": "throughput",
+    "disk_write": "throughput",
+
+    # Counter
+    "restarts": "counter"
+}
+
+
+# =================================================
+# LOAD TIMESERIES
+# =================================================
 def load_timeseries(csv_path):
 
     if not os.path.exists(csv_path):
@@ -26,53 +50,57 @@ def load_timeseries(csv_path):
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
     df = df.dropna(subset=["value"])
 
+    if df.empty:
+        return None
+
     return df
 
 
-# -------------------------------------------------
-# K6 SUMMARY
-# -------------------------------------------------
-
+# =================================================
+# K6 SUMMARY (SAFE NONE)
+# =================================================
 def load_k6_summary(path):
 
+    # -------------------------------------------------
+    # FILE MISSING → alles None
+    # -------------------------------------------------
     if not os.path.exists(path):
-        return {}
+        return {
+            "latency_avg": None,
+            "latency_p95": None,
+            "latency_p99": None,
+            "error_rate": None,
+            "requests_total": None,
+            "requests_rate": None
+        }
 
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    summary = {
-        "latency_avg": None,
-        "latency_p95": None,
-        "latency_p99": None,
-        "error_rate": None,
-        "requests_total": None,
-        "requests_rate": None
-    }
-
     metrics = data.get("metrics", {})
 
-    if "http_req_duration" in metrics:
-        values = metrics["http_req_duration"].get("values", {})
-        summary["latency_avg"] = values.get("avg")
-        summary["latency_p95"] = values.get("p(95)")
-        summary["latency_p99"] = values.get("p(99)")
+    http_duration = metrics.get("http_req_duration", {})
+    http_failed = metrics.get("http_req_failed", {})
+    http_reqs = metrics.get("http_reqs", {})
 
-    if "http_req_failed" in metrics:
-        summary["error_rate"] = metrics["http_req_failed"].get("values", {}).get("rate")
+    return {
+        # latency
+        "latency_avg": http_duration.get("avg"),
+        "latency_p95": http_duration.get("p(95)"),
+        "latency_p99": http_duration.get("p(99)"),
 
-    if "http_reqs" in metrics:
-        values = metrics["http_reqs"].get("values", {})
-        summary["requests_total"] = values.get("count")
-        summary["requests_rate"] = values.get("rate")
+        # errors
+        "error_rate": http_failed.get("value"),
 
-    return summary
+        # throughput
+        "requests_total": http_reqs.get("count"),
+        "requests_rate": http_reqs.get("rate")
+    }
 
 
-# -------------------------------------------------
-# PROMETHEUS LOADER
-# -------------------------------------------------
-
+# =================================================
+# PROMETHEUS LOADER (SAFE)
+# =================================================
 def load_prometheus_metric(csv_path):
 
     if not os.path.exists(csv_path):
@@ -89,17 +117,21 @@ def load_prometheus_metric(csv_path):
     if df.empty:
         return None
 
+    values = df["value"].tolist()
+
+    if len(values) == 0:
+        return None
+
     return {
-        "avg": float(df["value"].mean()),
-        "max": float(df["value"].max()),
-        "min": float(df["value"].min())
+        "avg": float(sum(values) / len(values)),
+        "max": float(max(values)),
+        "min": float(min(values))
     }
 
 
-# -------------------------------------------------
+# =================================================
 # RAW K6
-# -------------------------------------------------
-
+# =================================================
 def load_k6_raw(path):
 
     if not os.path.exists(path):
@@ -115,42 +147,37 @@ def load_k6_raw(path):
     return data
 
 
-# -------------------------------------------------
+# =================================================
 # SCORE ROUTER
-# -------------------------------------------------
-
+# =================================================
 def calculate_score_by_type(testClass, testType, result):
 
-    # LOAD FAMILY
     if testClass == "load":
 
-        # SOAK = special case of load
         if testType == "soak":
             return calculate_soak_score(result)
 
         return calculate_load_score(result)
 
-    # CHAOS
-    elif testClass == "chaos":
-        return calculate_load_score(result)  # später ersetzen
-
-    # UPDATE
-    elif testClass == "update":
-        return calculate_load_score(result)  # später ersetzen
+    if testClass in ["chaos", "update"]:
+        return calculate_load_score(result)
 
     return calculate_load_score(result)
 
-# -------------------------------------------------
-# Calculate trend for soak
-# -------------------------------------------------
+
+# =================================================
+# TREND ANALYSIS (SOAK)
+# =================================================
 def calculate_trend_percent(df):
 
     if df is None or df.empty:
         return 0
 
     df = df.sort_values("timestamp")
-
     df = df.dropna(subset=["value", "timestamp"])
+
+    if len(df) < 2:
+        return 0
 
     start = df["value"].iloc[0]
     end = df["value"].iloc[-1]
@@ -160,50 +187,27 @@ def calculate_trend_percent(df):
 
     return ((end - start) / start) * 100
 
+
 def extract_soak_trends(base, testType, run_id):
-    """
-    Berechnet echte Trends für Soak Tests aus Timeseries CSVs
-    """
 
     trends = {}
 
-    # ----------------------------
-    # MEMORY TREND
-    # ----------------------------
-    memory_df = load_timeseries(
-        f"{base}/{testType}_{run_id}_memory.csv"
-    )
+    for name in ["memory", "cpu", "k6_latency"]:
 
-    if memory_df is not None:
-        trends["memory_growth_percent"] = calculate_trend_percent(memory_df)
+        df = load_timeseries(
+            f"{base}/{testType}_{run_id}_{name}.csv"
+        )
 
-    # ----------------------------
-    # CPU TREND
-    # ----------------------------
-    cpu_df = load_timeseries(
-        f"{base}/{testType}_{run_id}_cpu.csv"
-    )
-
-    if cpu_df is not None:
-        trends["cpu_growth_percent"] = calculate_trend_percent(cpu_df)
-
-    # ----------------------------
-    # LATENCY TREND (k6)
-    # ----------------------------
-    latency_df = load_timeseries(
-        f"{base}/k6_latency_timeseries_{run_id}.csv"
-    )
-
-    if latency_df is not None:
-        trends["latency_growth_percent"] = calculate_trend_percent(latency_df)
+        if df is not None:
+            trends[f"{name}_growth_percent"] = calculate_trend_percent(df)
 
     return trends
 
-# -------------------------------------------------
-# ANALYZE RESULTS
-# -------------------------------------------------
 
-def analyze_results(scenario, env, testType, run_id, testClass):
+# =================================================
+# MAIN ANALYSIS
+# =================================================
+def analyze_results(scenario, env, testType, run_id, testClass, startTime, endTime):
 
     base = f"results/{env}/{testClass}/{scenario}/{testType}"
 
@@ -212,26 +216,23 @@ def analyze_results(scenario, env, testType, run_id, testClass):
         "scenario": scenario,
         "testType": testType,
         "testClass": testClass,
-        "run": run_id
+        "run": run_id,
+        "startTime": startTime,
+        "endTime": endTime
     }
 
     # -------------------------------------------------
-    # K6 SUMMARY
+    # K6
     # -------------------------------------------------
-
     summary_path = f"{base}/{testType}_{run_id}_summary.json"
     raw_path = f"{base}/{testType}_{run_id}_raw.json"
 
-    k6_summary = load_k6_summary(summary_path)
-    k6_raw = load_k6_raw(raw_path)
-
-    result.update(k6_summary)
-    result["raw_events"] = len(k6_raw)
+    result.update(load_k6_summary(summary_path))
+    result["raw_events"] = len(load_k6_raw(raw_path))
 
     # -------------------------------------------------
-    # PROMETHEUS METRICS
+    # PROMETHEUS METRICS (SAFE NONE HANDLING)
     # -------------------------------------------------
-
     prometheus_metrics = [
         "cpu",
         "memory",
@@ -241,7 +242,8 @@ def analyze_results(scenario, env, testType, run_id, testClass):
         "disk_write",
         "node_cpu",
         "node_memory",
-        "node_load"
+        "node_load",
+        "restarts"
     ]
 
     for metric in prometheus_metrics:
@@ -250,25 +252,60 @@ def analyze_results(scenario, env, testType, run_id, testClass):
             f"{base}/{testType}_{run_id}_{metric}.csv"
         )
 
-        if metric_data:
-            result[f"{metric}_avg"] = metric_data["avg"]
-            result[f"{metric}_max"] = metric_data["max"]
-            result[f"{metric}_min"] = metric_data["min"]
+        metric_type = METRIC_TYPE.get(metric)
+
+        # -----------------------------
+        # MISSING DATA
+        # -----------------------------
+        if metric_data is None:
+
+            if metric_type in ["cluster_utilization", "node_utilization"]:
+                result[f"{metric}_avg"] = None
+                result[f"{metric}_max"] = None
+                result[f"{metric}_min"] = None
+
+            elif metric_type == "throughput":
+                result[f"{metric}_avg"] = None
+                result[f"{metric}_max"] = None
+
+            elif metric_type == "counter":
+                result[metric] = None
+
+            else:
+                result[f"{metric}_max"] = None
+
+            continue
+
+        # -----------------------------
+        # VALID DATA
+        # -----------------------------
+        if metric_type in ["cluster_utilization", "node_utilization"]:
+
+            result[f"{metric}_avg"] = metric_data.get("avg")
+            result[f"{metric}_max"] = metric_data.get("max")
+            result[f"{metric}_min"] = metric_data.get("min")
+
+        elif metric_type == "throughput":
+
+            result[f"{metric}_avg"] = metric_data.get("avg")
+            result[f"{metric}_max"] = metric_data.get("max")
+
+        elif metric_type == "counter":
+
+            result[metric] = metric_data.get("max")
+
+        else:
+            result[f"{metric}_max"] = metric_data.get("max")
 
     # -------------------------------------------------
-    # SOAK FEATURES (nur wenn soak)
+    # SOAK
     # -------------------------------------------------
-
     if testType == "soak":
-
-        # Platzhalter (später echte Trendanalyse)
-        trends = extract_soak_trends(base, testType, run_id)
-        result.update(trends)
+        result.update(extract_soak_trends(base, testType, run_id))
 
     # -------------------------------------------------
     # SCORE
     # -------------------------------------------------
-
     result["reliability_score"] = calculate_score_by_type(
         testClass,
         testType,
@@ -278,13 +315,11 @@ def analyze_results(scenario, env, testType, run_id, testClass):
     # -------------------------------------------------
     # RECOMMENDATIONS
     # -------------------------------------------------
-
     result["recommendations"] = generate_recommendations(result)
 
     # -------------------------------------------------
     # SAVE
     # -------------------------------------------------
-
     output = f"{base}/summary_{run_id}_final.json"
 
     with open(output, "w", encoding="utf-8") as f:

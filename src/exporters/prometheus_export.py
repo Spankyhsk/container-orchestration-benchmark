@@ -7,104 +7,208 @@ from src.config.config import load_environment
 QUERIES = {
 
     # =================================================
-    # CPU USAGE
+    # CPU (Cluster Utilization – Docker vs Kubernetes Vergleich)
     # =================================================
     "cpu": {
-        # Docker (cAdvisor nutzt meist "name")
-        "docker":
-            'sum(rate(container_cpu_usage_seconds_total[1m])) by (name)',
 
-        # Kubernetes / k3s (nur codetask + mongodb)
+        # =================================================
+        # Docker:
+        # App CPU usage / Host CPU capacity
+        # =================================================
+        "docker":
+            '''
+            sum(rate(container_cpu_usage_seconds_total{name!=""}[1m]))
+            /
+            count(node_cpu_seconds_total{mode="system"})
+            ''',
+
+        # =================================================
+        # Kubernetes:
+        # App CPU usage / Cluster CPU capacity
+        # =================================================
         "k3s":
-            'sum(rate(container_cpu_usage_seconds_total{namespace=~"codetask|mongodb",container!="",pod!=""}[1m])) by (pod, container)'
+            '''
+            sum(rate(container_cpu_usage_seconds_total{
+                namespace=~"codetask|mongodb",
+                container!="",
+                pod!=""
+            }[1m]))
+            /
+            sum(machine_cpu_cores)
+            '''
     },
 
+
     # =================================================
-    # MEMORY USAGE
+    # MEMORY (Cluster Utilization)
     # =================================================
     "memory": {
+
         "docker":
-            'sum(container_memory_usage_bytes) by (name)',
+            '''
+            sum(container_memory_working_set_bytes{name!=""})
+            /
+            sum(node_memory_MemTotal_bytes)
+            ''',
 
         "k3s":
-            'sum(container_memory_usage_bytes{namespace=~"codetask|mongodb",container!="",pod!=""}) by (pod, container)'
+            '''
+            sum(container_memory_working_set_bytes{
+                namespace=~"codetask|mongodb",
+                container!="",
+                pod!=""
+            })
+            /
+            sum(node_memory_MemTotal_bytes)
+            '''
     },
 
+
     # =================================================
-    # NETWORK RX
+    # NETWORK (Throughput)
     # =================================================
     "network_rx": {
+
         "docker":
-            'sum(rate(container_network_receive_bytes_total[1m])) by (name)',
+            'sum(rate(container_network_receive_bytes_total{name!=""}[1m]))',
 
         "k3s":
-            'sum(rate(container_network_receive_bytes_total{namespace=~"codetask|mongodb",pod!=""}[1m])) by (pod, container)'
+            'sum(rate(container_network_receive_bytes_total{namespace=~"codetask|mongodb",pod!=""}[1m]))'
     },
 
-    # =================================================
-    # NETWORK TX
-    # =================================================
     "network_tx": {
+
         "docker":
-            'sum(rate(container_network_transmit_bytes_total[1m])) by (name)',
+            'sum(rate(container_network_transmit_bytes_total{name!=""}[1m]))',
 
         "k3s":
-            'sum(rate(container_network_transmit_bytes_total{namespace=~"codetask|mongodb",pod!=""}[1m])) by (pod, container)'
+            'sum(rate(container_network_transmit_bytes_total{namespace=~"codetask|mongodb",pod!=""}[1m]))'
     },
 
+
     # =================================================
-    # DISK READ
+    # DISK (I/O throughput)
     # =================================================
     "disk_read": {
+
         "docker":
-            'sum(rate(container_fs_reads_bytes_total[1m])) by (name)',
+            'sum(rate(container_fs_reads_bytes_total{name!=""}[1m]))',
 
         "k3s":
-            'sum(rate(container_fs_reads_bytes_total{namespace=~"codetask|mongodb",pod!=""}[1m])) by (pod, container)'
+            'sum(rate(container_fs_reads_bytes_total{namespace=~"codetask|mongodb",pod!=""}[1m]))'
     },
 
-    # =================================================
-    # DISK WRITE
-    # =================================================
     "disk_write": {
+
         "docker":
-            'sum(rate(container_fs_writes_bytes_total[1m])) by (name)',
+            'sum(rate(container_fs_writes_bytes_total{name!=""}[1m]))',
 
         "k3s":
-            'sum(rate(container_fs_writes_bytes_total{namespace=~"codetask|mongodb",pod!=""}[1m])) by (pod, container)'
+            'sum(rate(container_fs_writes_bytes_total{namespace=~"codetask|mongodb",pod!=""}[1m]))'
     },
 
+
     # =================================================
-    # NODE CPU
+    # NODE CPU (WORST NODE – normalized per core)
     # =================================================
     "node_cpu": {
+
         "docker":
-            'sum(rate(node_cpu_seconds_total{mode!="idle"}[1m])) by (instance)',
+            '''
+            (
+                sum(rate(node_cpu_seconds_total{mode!="idle"}[1m]))
+                /
+                count(node_cpu_seconds_total{mode="system"})
+            )
+            ''',
 
         "k3s":
-            'sum(rate(node_cpu_seconds_total{mode!="idle"}[1m])) by (instance)'
+            '''
+            max(
+                (
+                    sum by(instance)(
+                        rate(node_cpu_seconds_total{mode!="idle"}[1m])
+                    )
+                    /
+                    count by(instance)(
+                        node_cpu_seconds_total{mode="system"}
+                    )
+                )
+            )
+            '''
     },
 
+
     # =================================================
-    # NODE MEMORY
+    # NODE MEMORY (WORST NODE – utilization 0..1)
     # =================================================
     "node_memory": {
+
         "docker":
-            '(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)',
+            '''
+            1 - (
+                node_memory_MemAvailable_bytes
+                /
+                node_memory_MemTotal_bytes
+            )
+            ''',
 
         "k3s":
-            '(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)'
+            '''
+            max(
+                1 - (
+                    node_memory_MemAvailable_bytes
+                    /
+                    node_memory_MemTotal_bytes
+                )
+            )
+            '''
     },
 
+
     # =================================================
-    # NODE LOAD
+    # NODE LOAD (WORST NODE – normalized per core)
     # =================================================
     "node_load": {
+
+        # =================================================
+        # Docker (normalized per core)
+        # =================================================
+        "docker": '''
+        node_load1
+        /
+        scalar(
+            count(node_cpu_seconds_total{mode="system"})
+        )
+    ''',
+
+        # =================================================
+        # Kubernetes (worst node normalized)
+        # =================================================
+        "k3s": '''
+        max(
+            node_load1
+        )
+        /
+        avg(
+            count by(instance)(
+                node_cpu_seconds_total{mode="system"}
+            )
+        )
+    '''
+    },
+
+
+    # =================================================
+    # RESTARTS (cluster instability signal)
+    # =================================================
+    "restarts": {
+
         "docker":
-            'node_load1',
+            'sum(changes(container_start_time_seconds{name!=""}[5m]))',
 
         "k3s":
-            'node_load1'
+            'sum(increase(kube_pod_container_status_restarts_total{namespace=~"codetask|mongodb"}[5m]))'
     }
 }
 
@@ -175,8 +279,20 @@ def export_metrics(env, scenario, testType, run_id, testClass, start, end):
 
         data = query_range(env, query, start, end)
 
+        # -----------------------------
+        # SAFETY CHECK
+        # -----------------------------
+        if (
+            not data
+            or data.get("status") != "success"
+            or "data" not in data
+            or "result" not in data["data"]
+        ):
+            print(f"[WARN] Invalid Prometheus response for {name}")
+            continue
+
         save_csv(
-            f"{result_dir}/{testType}_{run_id}_{name}.csv",
+        f"{result_dir}/{testType}_{run_id}_{name}.csv",
             data
         )
 

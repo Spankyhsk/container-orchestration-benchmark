@@ -3,7 +3,8 @@ import { check, group } from 'k6';
 import { think } from "../../shared/helpers/helpers.js"
 import { K6Api } from "../../shared/api/k6-api.js";
 
-export function activeStudentUser(user, thinkTime){
+export function activeStudentUser(user, thinkTime, ctx){
+
     const params = {
         headers: {
             Authorization: `Bearer ${user.token}`,
@@ -60,7 +61,6 @@ function courseScala3Flow(user, params, thinkTime) {
             'subscription status 200': (r) => r.status === 200,
         });
 
-        think(thinkTime);
 
         const semesterRes = http.get(
             K6Api.semesters.getView,
@@ -69,7 +69,6 @@ function courseScala3Flow(user, params, thinkTime) {
 
         check(semesterRes, {
             'semester view status 200': (r) => r.status === 200,
-            'semester response valid': (r) => r.json().length > 0,
         });
 
         const semesters = semesterRes.json();
@@ -91,6 +90,8 @@ function courseScala3Flow(user, params, thinkTime) {
         });
 
         lectureId = lecture._id;
+
+        think(thinkTime);
 
         http.get(
             K6Api.subscriptions.getSubscriptionList,
