@@ -43,7 +43,7 @@
   },
   "soak": {
     "vus": 100,
-    "duration": "8h",
+    "duration": "7h",
     "users": 100,
     "setupTimeout": "120s"
   }

@@ -24,9 +24,13 @@
 
 + k6
 + Grafana
-+ Playwright
 + Chaos Mesh/LitmusChaos
 + Pumba/Toxipeoxy
+
+## Ui Bnechmark
+````powershell
+python ui/app.py
+````
 
 ## Benchmark automation ausführen
 ````powershell

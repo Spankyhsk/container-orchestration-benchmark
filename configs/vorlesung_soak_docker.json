@@ -1,19 +1,19 @@
 {
-  "name": "testo",
+  "name": "Vorlesungen soak test",
 
   "mode": "collect",
 
-  "envs": ["docker", "k3s"],
+  "envs": ["docker"],
 
   "testClass": "load",
 
   "scenarios": ["vorlesungen"],
 
-  "testTypes": ["smoke"],
+  "testTypes": ["soak"],
 
   "runsPerTest": 1,
 
-  "sleepSeconds": 5,
+  "sleepSeconds": 30,
 
   "scenarioCooldownSeconds": 0
 }

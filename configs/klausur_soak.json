@@ -1,5 +1,5 @@
 {
-  "name": "testo",
+  "name": "Klausur Soak test",
 
   "mode": "collect",
 
@@ -7,13 +7,13 @@
 
   "testClass": "load",
 
-  "scenarios": ["vorlesungen"],
+  "scenarios": ["klausur"],
 
-  "testTypes": ["smoke"],
+  "testTypes": ["soak"],
 
   "runsPerTest": 1,
 
-  "sleepSeconds": 5,
+  "sleepSeconds": 30,
 
   "scenarioCooldownSeconds": 0
 }

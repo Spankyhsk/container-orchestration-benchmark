@@ -3,14 +3,17 @@
 # =========================================
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [string]$configPath
+    [string]$configPath,
+
+    [Parameter(Mandatory = $false, Position = 1)]
+    [string]$mode = $null
 )
 
 # =========================================
 # VALIDATION
 # =========================================
 if (-not $configPath) {
-    Write-Error "configPath is missing. Usage: run_benchmarks.ps1 <config.json>"
+    Write-Error "configPath is missing. Usage: run_benchmarks.ps1 <config.json> [mode]"
     exit 1
 }
 
@@ -24,8 +27,19 @@ if (-not (Test-Path $configPath)) {
 # =========================================
 $config = Get-Content -Path $configPath -Raw | ConvertFrom-Json
 
-$mode = $config.mode
-if (-not $mode) { $mode = "full" }
+# MODE PRIORITY:
+# 1. CLI (UI)
+# 2. config.json fallback
+# 3. default
+if (-not $mode) {
+    $mode = $config.mode
+}
+
+if (-not $mode) {
+    $mode = "full"
+}
+
+Write-Host "=== MODE: $mode ==="
 
 # =========================================
 # STATS
@@ -40,14 +54,16 @@ foreach ($env in $config.envs)
 # =========================================
 # START
 # =========================================
-python -c "from src.reports.discord import send_message; send_message('Benchmark STARTED')"
+$benchName = $config.name
+if (-not $benchName) { $benchName = "unnamed" }
+
+python -c "from src.reports.discord import send_message; send_message('Benchmark STARTED | NAME=$benchName | MODE=$mode')"
 
 # =========================================
-# BENCHMARK PHASE (SKIP IF analyze)
+# BENCHMARK PHASE
 # =========================================
 if ($mode -ne "analyze")
 {
-    # scenarios ganz außen
     foreach ($scenario in $config.scenarios)
     {
         python -c "from src.reports.discord import send_message; send_message('SCENARIO START: $scenario')"
@@ -76,20 +92,17 @@ if ($mode -ne "analyze")
                         if ($exitCode -eq 0)
                         {
                             $stats[$env].success++
-
                             python -c "from src.reports.discord import send_message; send_message('SUCCESS: $runLabel')"
                         }
                         else
                         {
                             $stats[$env].failed++
-
                             python -c "from src.reports.discord import send_message; send_message('FAILED: $runLabel | ExitCode=$exitCode')"
                         }
                     }
                     catch
                     {
                         $stats[$env].failed++
-
                         $err = $_.Exception.Message.Replace("'", "''")
 
                         python -c "from src.reports.discord import send_message; send_message('ERROR: $runLabel | $err')"
@@ -100,18 +113,16 @@ if ($mode -ne "analyze")
             }
         }
 
-        # cooldown zwischen scenarios
         if ($config.scenarioCooldownSeconds)
         {
             python -c "from src.reports.discord import send_message; send_message('SCENARIO COOLDOWN: $scenario | waiting $($config.scenarioCooldownSeconds)s')"
-
             Start-Sleep -Seconds $config.scenarioCooldownSeconds
         }
     }
 }
 
 # =========================================
-# AGGREGATION (SKIP IF collect-only)
+# AGGREGATION
 # =========================================
 if ($mode -ne "collect")
 {
@@ -128,7 +139,7 @@ if ($mode -ne "collect")
 }
 
 # =========================================
-# COMPARISON STEP (ONLY analyze/full)
+# COMPARISON
 # =========================================
 if ($mode -ne "collect")
 {
@@ -154,7 +165,7 @@ compare_group(
 }
 
 # =========================================
-# FINAL REPORTS (ONLY analyze/full)
+# REPORTS
 # =========================================
 if ($mode -ne "collect")
 {
@@ -176,7 +187,7 @@ send_file('$pdf', 'FINAL COMPARISON REPORT: $scenario / $testType')
 }
 
 # =========================================
-# SUMMARY (ONLY collect/full)
+# SUMMARY
 # =========================================
 if ($mode -ne "analyze")
 {
