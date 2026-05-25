@@ -14,6 +14,9 @@ class SSHTunnel:
     def start(self):
         cmd = [
             "ssh",
+            "-o", "ServerAliveInterval=30",
+            "-o", "ServerAliveCountMax=3",
+            "-o", "TCPKeepAlive=yes",
             "-N",
             "-L",
             f"{self.local_port}:localhost:{self.remote_port}",

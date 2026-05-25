@@ -300,130 +300,68 @@ def calculate_load_score(summary):
 
 def calculate_soak_score(summary):
 
-    # -------------------------------------------------
-    # Startwert für den Soak Reliability Score
-    #
-    # Auch hier startet das System mit 100 Punkten.
-    # Der Fokus ist aber NICHT Peak-Performance,
-    # sondern Stabilität über Zeit.
-    #
-    # Typische Probleme bei Soak Tests:
-    # - Memory Leaks
-    # - CPU Drift
-    # - steigende Latenzen über Zeit
-    # - schleichende Instabilität
-    # -------------------------------------------------
-
     score = 100
 
     # =================================================
     # MEMORY LEAK DETECTION
-    # =================================================
-    #
-    # Beim Soak Test ist Memory-Verhalten über Zeit
-    # extrem wichtig.
-    #
-    # Problem:
-    # Wenn Memory kontinuierlich steigt,
-    # liegt vermutlich ein Leak vor.
-    #
-    # Das ist kritischer als ein einzelner Peak.
     # =================================================
 
     mem = summary.get("memory_growth_percent")
 
     if mem is not None:
 
-        # Starker Memory Leak
-        # -> sehr kritisch
         if mem > 30:
             score -= 40
-
-        # Moderater Memory Anstieg
-        # -> potenziell problematisch
         elif mem > 15:
-            score -= 20
-
-        # Leichter kontinuierlicher Anstieg
-        # -> frühes Leak-Signal
+            score -= 25
         elif mem > 5:
             score -= 10
 
     # =================================================
-    # CPU DRIFT (langfristige Veränderung)
-    # =================================================
-    #
-    # CPU darf im Soak Test NICHT dauerhaft steigen.
-    #
-    # Ein steigender CPU Trend bedeutet:
-    # - ineffiziente Verarbeitung
-    # - Hintergrundprozesse wachsen
-    # - mögliche Deadlocks / Loops
+    # CPU DRIFT
     # =================================================
 
     cpu = summary.get("cpu_growth_percent")
 
     if cpu is not None:
 
-        # Starker CPU-Anstieg über Zeit
         if cpu > 25:
-            score -= 20
-
-        # leichter CPU-Anstieg
+            score -= 25
         elif cpu > 10:
-            score -= 10
-
-        # sehr leichter Drift
+            score -= 15
         elif cpu > 5:
             score -= 5
 
     # =================================================
     # LATENCY DRIFT
     # =================================================
-    #
-    # Im Gegensatz zum Load Test ist hier wichtig:
-    # NICHT nur p95,
-    # sondern die Veränderung über Zeit.
-    #
-    # Wenn Latenz steigt:
-    # -> System degradiert unter Dauerlast
-    # =================================================
 
     lat = summary.get("latency_growth_percent")
 
     if lat is not None:
 
-        # starke Verschlechterung der Latenz
         if lat > 30:
-            score -= 20
-
-        # moderate Verschlechterung
+            score -= 25
         elif lat > 15:
-            score -= 10
-
-        # leichter Drift
+            score -= 15
         elif lat > 5:
             score -= 5
 
     # =================================================
     # SYSTEM-WEITE DEGRADATION
     # =================================================
-    #
-    # Wenn mehrere Ressourcen gleichzeitig degradieren,
-    # ist das ein Zeichen für systemische Probleme
-    # und nicht nur einzelne Engpässe.
-    # =================================================
 
-    if mem and cpu and lat:
+    if mem is not None and cpu is not None and lat is not None:
 
-        if mem > 15 and cpu > 10 and lat > 15:
-            score -= 15
+        if mem > 15 and cpu > 10 and lat > 10:
+            score -= 20
 
     # =================================================
-    # Finalen Score zurückgeben
+    # STABILITY BONUS CHECK (optional aber sinnvoll)
     # =================================================
-    #
-    # Der Score darf niemals negativ werden.
-    # =================================================
+    # Wenn alles stabil bleibt -> kein Drift
 
-    return max(score, 0)
+    if mem is not None and mem < 2 and cpu is not None and cpu < 2 and lat is not None and lat < 2:
+        score += 5  # kleines Stabilitäts-Reward
+
+    return max(min(score, 100), 0)

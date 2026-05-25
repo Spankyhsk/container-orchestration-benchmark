@@ -89,13 +89,16 @@ def run_benchmark(scenario, env, testType, run_id, testClass):
         endTime=end
     )
 
-    generate_plots(
-        scenario=scenario,
-        env=env,
-        testType=testType,
-        run_id=run_id,
-        testClass=testClass
-    )
+    if testType != "soak":
+        generate_plots(
+            scenario=scenario,
+            env=env,
+            testType=testType,
+            run_id=run_id,
+            testClass=testClass
+        )
+    else:
+        print("Skipping plots for soak test")
 
 
 if __name__ == "__main__":

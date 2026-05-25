@@ -1,48 +1,43 @@
 import path from "path";
 import fs from "fs";
-import { spawn, execSync } from "child_process";
+import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 
 import { waitForIdle } from "../load/shared/helpers/waitForIdle.js";
-import { cleanup } from "../load/shared/lifecycle/cleanup.js";
+import { cleanup } from "./shared/lifecycle/cleanup.js";
+
+import { runScenario } from "./core/scenario-runner.js";
+import {createUsers} from "./shared/lifecycle/create-users.js";
+import {API} from "./shared/api/node-api.js";
+import { setSSHConfig } from "./core/remote-executer.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..", "..");
 
+// =====================================================
 async function run() {
 
-    // --------------------
-    // CLI PARAMS
-    // --------------------
-    const testName = process.argv[2];        // klausur, login
-    const envType = process.argv[3];         // docker, k3s
-    const chaosScenario = process.argv[4];   // pod-kill, service-failure
+    const failureClass = process.argv[2]; // instance-failure, network-degradation
+    const envType = process.argv[3]; // docker || k3s
+    const scenarioName = process.argv[4]; //api-instance-down, ...
     const runId = process.argv[5] || "0";
 
-    if (!testName || !envType || !chaosScenario) {
-        throw new Error(
-            "Usage: node run-test.js <testName> <envType> <chaosScenario> <runId>"
-        );
+    if (!failureClass || !envType || !scenarioName) {
+        throw new Error("Usage: node run-test.js <test> <env> <scenario> <runId>");
     }
 
-    console.log(`Running chaos test:
-    Test: ${testName}
-    Env: ${envType}
-    Scenario: ${chaosScenario}
-    Run: ${runId}`);
+    console.log(`CHAOS RUN: ${scenarioName}`);
+
+    let api;
 
     try {
 
-        // --------------------
         // ENV LOAD
-        // --------------------
         const envFile = path.join(
             ROOT,
-            envType === "k3s"
-                ? ".env.k3s"
-                : ".env.docker"
+            envType === "k3s" ? ".env.k3s" : ".env.docker"
         );
 
         fs.readFileSync(envFile, "utf8")
@@ -50,120 +45,103 @@ async function run() {
             .forEach(line => {
 
                 const trimmed = line.trim();
-
                 if (!trimmed || trimmed.startsWith("#")) return;
 
-                const index = trimmed.indexOf("=");
+                const idx = trimmed.indexOf("=");
+                if (idx === -1) return;
 
-                if (index === -1) return;
-
-                const key = trimmed.slice(0, index).trim();
-                const value = trimmed.slice(index + 1).trim();
-
-                process.env[key] = value;
+                process.env[trimmed.slice(0, idx)] =
+                    trimmed.slice(idx + 1);
             });
 
-        console.log("BASE_URL:", process.env.BASE_URL);
+        api = API(process.env.BASE_URL);
 
-        // --------------------
-        // FIXED LOAD PROFILE
-        // --------------------
+        const sshHost = process.env.SSH_HOST;
+        const sshUser = process.env.SSH_USER;
+
+        setSSHConfig({
+            host: sshHost,
+            user: sshUser
+        });
+
         const testFile = path.join(
             ROOT,
-            "test/load/tests",
-            "averageLoad.js"
+            "test/chaos/k6/load-test.js"
         );
 
-        // --------------------
-        // RESULT PATHS
-        // --------------------
+        const scenarioPath = path.join(
+            ROOT,
+            "test/chaos/scenarios",
+            `${failureClass}`,
+            `${scenarioName}.json`
+        );
+
+        const scenario = JSON.parse(
+            fs.readFileSync(scenarioPath, "utf8")
+        );
+
         const resultDir = path.join(
             ROOT,
             "results",
             envType,
             "chaos",
-            testName,
-            chaosScenario
+            failureClass,
+            scenarioName
         );
 
         fs.mkdirSync(resultDir, { recursive: true });
 
         const resultFile = path.join(
             resultDir,
-            `${chaosScenario}_${runId}`
+            `${scenarioName}_${runId}`
         );
 
-        // --------------------
-        // K6 ENV
-        // --------------------
-        const k6Env = {
+        const userFile = path.join(ROOT, "test/chaos/k6/users.json")
+
+        let users;
+
+        users = await createUsers({
+            api,
+            count: 100
+        });
+
+        fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
+
+        let k6Env = {
             ...process.env,
 
-            TEST_NAME: testName,
-            CHAOS_SCENARIO: chaosScenario,
+            TEST_NAME: scenarioName,
+            USER_PATH: userFile,
             RUNNUMBER: runId
-        };
+        }
 
-        // --------------------
-        // WAIT BEFORE START
-        // --------------------
-        console.log("Waiting for idle system...");
-        await waitForIdle({});
+        await waitForIdle({ api });
 
-        // --------------------
-        // START K6
-        // --------------------
-        console.log("Starting k6 averageLoad test...");
+        console.log("Starting k6...");
 
-        const k6Process = spawn(
-            "k6",
-            [
-                "run",
-                testFile,
-
-                "--no-setup",
-                "--no-teardown",
-
-                `--out=json=${resultFile}_raw.json`,
-
-                `--summary-export=${resultFile}_summary.json`
-            ],
-            {
-                stdio: "inherit",
-                env: k6Env
-            }
-        );
-
-        // --------------------
-        // WAIT BEFORE CHAOS
-        // --------------------
-        console.log("Waiting 30s before chaos injection...");
+        const k6Process = spawn("k6", [
+            "run",
+            testFile,
+            `--out=json=${resultFile}_raw.json`,
+            `--summary-export=${resultFile}_summary.json`
+        ], {
+            stdio: "inherit",
+            env: k6Env
+        });
 
         await sleep(30000);
 
-        // --------------------
-        // TRIGGER CHAOS
-        // --------------------
-        console.log(`Triggering chaos scenario: ${chaosScenario}`);
+        console.log("Triggering chaos...");
 
-        await triggerChaos(envType, chaosScenario);
+        await runScenario(envType, scenario);
 
-        // --------------------
-        // WAIT FOR K6 END
-        // --------------------
         await waitForProcess(k6Process);
 
-        console.log("Chaos test finished");
+        await waitForIdle({api});
 
-        // --------------------
-        // WAIT AFTER TEST
-        // --------------------
-        console.log("Waiting for stabilization...");
-        await waitForIdle({});
+    } catch (e) {
 
-    } catch (err) {
-
-        console.error("CHAOS PIPELINE FAILED:", err);
+        console.error(e);
 
     } finally {
 
@@ -171,78 +149,26 @@ async function run() {
         // CLEANUP
         // --------------------
         try {
-
-            console.log(`Running cleanup for env: ${envType}`);
+            console.log(`Running remote cleanup for env: ${envType}`);
 
             cleanup(envType);
 
         } catch (cleanupErr) {
-
             console.error("CLEANUP FAILED:", cleanupErr);
         }
 
-        console.log("CHAOS PIPELINE FINISHED");
+        console.log("PIPELINE FINISHED");
     }
 }
 
-// --------------------
-// CHAOS EXECUTION
-// --------------------
-async function triggerChaos(envType, chaosScenario) {
-
-    if (envType === "k3s") {
-
-        const chaosFile = path.join(
-            ROOT,
-            "test/chaos/scenarios/k3s",
-            `${chaosScenario}.yaml`
-        );
-
-        execSync(
-            `kubectl apply -f "${chaosFile}"`,
-            {
-                stdio: "inherit"
-            }
-        );
-
-    } else {
-
-        const scriptFile = path.join(
-            ROOT,
-            "test/chaos/scenarios/docker",
-            `${chaosScenario}.sh`
-        );
-
-        execSync(
-            `bash "${scriptFile}"`,
-            {
-                stdio: "inherit"
-            }
-        );
-    }
-}
-
-// --------------------
-// WAIT HELPERS
-// --------------------
+// helpers
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(r => setTimeout(r, ms));
 }
 
-function waitForProcess(process) {
-
-    return new Promise((resolve, reject) => {
-
-        process.on("close", code => {
-
-            if (code === 0) {
-                resolve();
-            } else {
-                reject(new Error(`Process exited with code ${code}`));
-            }
-        });
-
-        process.on("error", reject);
+function waitForProcess(p) {
+    return new Promise((res, rej) => {
+        p.on("close", c => c === 0 ? res() : rej(c));
     });
 }
 

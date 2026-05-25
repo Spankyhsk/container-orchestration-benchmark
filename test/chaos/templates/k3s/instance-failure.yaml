@@ -1,0 +1,19 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+
+metadata:
+  name: {{NAME}}
+  namespace: chaos-testing
+
+spec:
+  action: pod-kill
+  mode: {{MODE}}
+
+  selector:
+    namespaces:
+      - default
+
+    labelSelectors:
+      app: {{K8S_LABEL}}
+
+  duration: "{{DURATION}}s"

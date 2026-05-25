@@ -1,0 +1,17 @@
+{
+  "name": "service-api-failure",
+
+  "target": {
+    "label": "app=api",
+
+    "container": "re2:api",
+
+    "action": "kill"
+  },
+
+  "mode": "one",
+
+  "chaos": {
+    "duration": 30
+  }
+}

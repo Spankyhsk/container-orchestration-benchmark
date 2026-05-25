@@ -1,0 +1,17 @@
+{
+  "name": "api-reduced-capacity",
+  "failureClass": "PARTIAL_DEGRADATION",
+
+  "target": {
+    "service": "api",
+    "k8sLabel": "app=api",
+    "container": "re2:api"
+  },
+
+  "mode": "fixed",
+  "count": 1,
+
+  "chaos": {
+    "duration": 30
+  }
+}

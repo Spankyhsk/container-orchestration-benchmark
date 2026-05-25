@@ -1,0 +1,7 @@
+{
+  "name": "service-failure",
+  "type": "service",
+  "target": "api",
+  "duration": 30,
+  "mode": "all"
+}

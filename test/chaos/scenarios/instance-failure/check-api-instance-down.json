@@ -1,0 +1,16 @@
+{
+  "name": "check-api-instance-down",
+  "failureClass": "INSTANCE_FAILURE",
+
+  "target": {
+    "service": "check-api",
+    "k8sLabel": "app=check-api",
+    "container": "re2:check-api"
+  },
+
+  "mode": "one",
+
+  "chaos": {
+    "duration": 30
+  }
+}

@@ -53,5 +53,25 @@ export default function (ctx) {
 }
 
 export function teardown() {
-    annotate("END", "soak", testName);
+
+    for (let i = 0; i < 5; i++) {
+
+        try {
+
+            const res = annotate("END", "soak", testName);
+
+            if (res.status === 200) {
+                console.log("END annotation written");
+                return;
+            }
+
+        } catch (e) {
+            console.log(e);
+        }
+
+        sleep(5);
+    }
+
+    throw new Error("END annotation failed");
+
 }

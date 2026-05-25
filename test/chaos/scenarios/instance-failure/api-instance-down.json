@@ -1,0 +1,16 @@
+{
+  "name": "api-instance-down",
+  "failureClass": "INSTANCE_FAILURE",
+
+  "target": {
+    "service": "api",
+    "k8sLabel": "app=api",
+    "container": "re2:api"
+  },
+
+  "mode": "one",
+
+  "chaos": {
+    "duration": 30
+  }
+}

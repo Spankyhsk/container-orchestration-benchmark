@@ -1,0 +1,19 @@
+{
+  "name": "Vorlesungen soak test",
+
+  "mode": "collect",
+
+  "envs": ["k3s"],
+
+  "testClass": "load",
+
+  "scenarios": ["vorlesungen"],
+
+  "testTypes": ["soak"],
+
+  "runsPerTest": 1,
+
+  "sleepSeconds": 30,
+
+  "scenarioCooldownSeconds": 0
+}

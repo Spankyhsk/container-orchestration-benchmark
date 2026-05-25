@@ -18,7 +18,7 @@ METRIC_TYPE = {
     "cpu": "cluster_utilization",
     "memory": "cluster_utilization",
 
-    # Worst Node Utilization (0–1)
+    # Node Utilization (0–1)
     "node_cpu": "node_utilization",
     "node_memory": "node_utilization",
     "node_load": "node_utilization",
@@ -61,9 +61,6 @@ def load_timeseries(csv_path):
 # =================================================
 def load_k6_summary(path):
 
-    # -------------------------------------------------
-    # FILE MISSING → alles None
-    # -------------------------------------------------
     if not os.path.exists(path):
         return {
             "latency_avg": None,
@@ -84,15 +81,10 @@ def load_k6_summary(path):
     http_reqs = metrics.get("http_reqs", {})
 
     return {
-        # latency
         "latency_avg": http_duration.get("avg"),
         "latency_p95": http_duration.get("p(95)"),
         "latency_p99": http_duration.get("p(99)"),
-
-        # errors
         "error_rate": http_failed.get("value"),
-
-        # throughput
         "requests_total": http_reqs.get("count"),
         "requests_rate": http_reqs.get("rate")
     }
@@ -118,9 +110,6 @@ def load_prometheus_metric(csv_path):
         return None
 
     values = df["value"].tolist()
-
-    if len(values) == 0:
-        return None
 
     return {
         "avg": float(sum(values) / len(values)),
@@ -166,21 +155,19 @@ def calculate_score_by_type(testClass, testType, result):
 
 
 # =================================================
-# TREND ANALYSIS (SOAK)
+# TREND ANALYSIS (IMPROVED)
 # =================================================
 def calculate_trend_percent(df):
 
-    if df is None or df.empty:
+    if df is None or df.empty or len(df) < 3:
         return 0
 
-    df = df.sort_values("timestamp")
-    df = df.dropna(subset=["value", "timestamp"])
+    df = df.sort_values("timestamp").dropna(subset=["value"])
 
-    if len(df) < 2:
-        return 0
+    values = df["value"].rolling(window=5, min_periods=1).mean()
 
-    start = df["value"].iloc[0]
-    end = df["value"].iloc[-1]
+    start = values.iloc[:5].mean()
+    end = values.iloc[-5:].mean()
 
     if start == 0:
         return 0
@@ -188,11 +175,20 @@ def calculate_trend_percent(df):
     return ((end - start) / start) * 100
 
 
+# =================================================
+# SOAK TREND EXTRACTION (IMPROVED)
+# =================================================
 def extract_soak_trends(base, testType, run_id):
 
     trends = {}
 
-    for name in ["memory", "cpu", "k6_latency"]:
+    for name in [
+        "memory",
+        "cpu",
+        "node_load",
+        "k6_latency",
+        "requests_rate"
+    ]:
 
         df = load_timeseries(
             f"{base}/{testType}_{run_id}_{name}.csv"
@@ -231,7 +227,7 @@ def analyze_results(scenario, env, testType, run_id, testClass, startTime, endTi
     result["raw_events"] = len(load_k6_raw(raw_path))
 
     # -------------------------------------------------
-    # PROMETHEUS METRICS (SAFE NONE HANDLING)
+    # PROMETHEUS
     # -------------------------------------------------
     prometheus_metrics = [
         "cpu",
@@ -254,48 +250,30 @@ def analyze_results(scenario, env, testType, run_id, testClass, startTime, endTi
 
         metric_type = METRIC_TYPE.get(metric)
 
-        # -----------------------------
-        # MISSING DATA
-        # -----------------------------
         if metric_data is None:
 
-            if metric_type in ["cluster_utilization", "node_utilization"]:
-                result[f"{metric}_avg"] = None
-                result[f"{metric}_max"] = None
-                result[f"{metric}_min"] = None
-
-            elif metric_type == "throughput":
-                result[f"{metric}_avg"] = None
-                result[f"{metric}_max"] = None
-
-            elif metric_type == "counter":
-                result[metric] = None
-
-            else:
-                result[f"{metric}_max"] = None
-
+            result[f"{metric}_avg"] = None
+            result[f"{metric}_max"] = None
+            result[f"{metric}_min"] = None
             continue
 
-        # -----------------------------
-        # VALID DATA
-        # -----------------------------
         if metric_type in ["cluster_utilization", "node_utilization"]:
 
-            result[f"{metric}_avg"] = metric_data.get("avg")
-            result[f"{metric}_max"] = metric_data.get("max")
-            result[f"{metric}_min"] = metric_data.get("min")
+            result[f"{metric}_avg"] = metric_data["avg"]
+            result[f"{metric}_max"] = metric_data["max"]
+            result[f"{metric}_min"] = metric_data["min"]
 
         elif metric_type == "throughput":
 
-            result[f"{metric}_avg"] = metric_data.get("avg")
-            result[f"{metric}_max"] = metric_data.get("max")
+            result[f"{metric}_avg"] = metric_data["avg"]
+            result[f"{metric}_max"] = metric_data["max"]
 
         elif metric_type == "counter":
 
-            result[metric] = metric_data.get("max")
+            result[metric] = metric_data["max"]
 
         else:
-            result[f"{metric}_max"] = metric_data.get("max")
+            result[f"{metric}_max"] = metric_data["max"]
 
     # -------------------------------------------------
     # SOAK

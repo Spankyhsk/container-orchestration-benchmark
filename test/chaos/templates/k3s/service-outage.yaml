@@ -1,0 +1,18 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+
+metadata:
+  name: {{NAME}}
+
+spec:
+  action: pod-failure
+  mode: {{MODE}}
+
+  selector:
+    namespaces:
+      - default
+
+    labelSelectors:
+      app: {{K8S_LABEL}}
+
+  duration: "{{DURATION}}s"

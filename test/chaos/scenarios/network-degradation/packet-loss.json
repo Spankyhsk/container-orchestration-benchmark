@@ -1,0 +1,18 @@
+{
+  "name": "packet-loss",
+  "failureClass": "NETWORK_DEGRADATION",
+
+  "target": {
+    "service": "api",
+    "k8sLabel": "app=api",
+    "container": "re2:api"
+  },
+
+  "network": {
+    "lossPercent": 10
+  },
+
+  "chaos": {
+    "duration": 60
+  }
+}

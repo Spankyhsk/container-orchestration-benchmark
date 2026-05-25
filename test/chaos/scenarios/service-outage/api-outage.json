@@ -1,0 +1,16 @@
+{
+  "name": "api-outage",
+  "failureClass": "SERVICE_OUTAGE",
+
+  "target": {
+    "service": "api",
+    "k8sLabel": "app=api",
+    "container": "re2:api"
+  },
+
+  "mode": "all",
+
+  "chaos": {
+    "duration": 40
+  }
+}

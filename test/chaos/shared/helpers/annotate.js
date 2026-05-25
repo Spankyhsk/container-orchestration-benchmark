@@ -6,7 +6,7 @@ const ENV = __ENV.ENV;
 const RUNNUMBER = __ENV.RUNNUMBER;
 
 export function annotate(text, type, scenario) {
-    const res =http.post(
+    http.post(
         `${GRAFANA_URL}/api/annotations`,
         JSON.stringify({
             text: text,
@@ -14,7 +14,7 @@ export function annotate(text, type, scenario) {
                 `scenario:${scenario}`,
                 `env:${ENV}`,
                 `type:${type}`,
-                `class:load`,
+                `class:chaos`,
                 `run:${RUNNUMBER}`
             ]
         }),
@@ -25,6 +25,4 @@ export function annotate(text, type, scenario) {
             }
         }
     );
-
-    return res;
 }
