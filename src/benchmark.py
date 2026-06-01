@@ -32,7 +32,7 @@ def run_benchmark(scenario, env, testType, run_id, testClass):
 
     subprocess.run([
         "node",
-        "test/load/run-test.js",
+        f"test/{testClass}/run-test.js",
         scenario,
         env,
         testType,

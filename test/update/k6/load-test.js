@@ -33,7 +33,7 @@ const users = new SharedArray('users', () =>
 );
 
 export function setup() {
-    annotate("START", "load-test", testName)
+    annotate("START", testName)
 }
 
 export default function () {
@@ -344,5 +344,5 @@ export default function () {
 }
 
 export function teardown() {
-    annotate("END", "load-test", testName)
+    annotate("END",  testName)
 }

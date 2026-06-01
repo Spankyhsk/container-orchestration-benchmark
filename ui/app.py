@@ -170,47 +170,74 @@ def worker():
         mode = mode_select.value
         envs = config.get("envs", [])
 
-        status_label.set_text("Starting infrastructure...")
-
-        docker_vars = load_env("docker") if "docker" in envs else None
-        k3s_vars = load_env("k3s") if "k3s" in envs else None
+        add_log(f"Mode: {mode}")
 
         # =====================================================
-        # START INFRA
+        # ANALYZE MODE
         # =====================================================
-        if docker_vars:
-            add_log("Starting Docker environment")
-            docker_env = DockerEnvironment(docker_vars)
-            docker_env.start(registry=STATE)
+        if mode == "analyze":
 
-        if k3s_vars:
-            add_log("Starting K3s environment")
-            k3s_env = K3sEnvironment(k3s_vars)
-            k3s_env.start(registry=STATE)
+            status_label.set_text("Analyzing results...")
+
+            add_log("Analyze mode -> skipping infrastructure startup")
+            add_log("No SSH tunnel required")
+            add_log("No port forwarding required")
+            add_log("No healthchecks required")
+
+        else:
+
+            status_label.set_text("Starting infrastructure...")
+
+            docker_vars = load_env("docker") if "docker" in envs else None
+            k3s_vars = load_env("k3s") if "k3s" in envs else None
+
+            # =====================================================
+            # START INFRA
+            # =====================================================
+            if docker_vars:
+                add_log("Starting Docker environment")
+                docker_env = DockerEnvironment(docker_vars)
+                docker_env.start(registry=STATE)
+
+            if k3s_vars:
+                add_log("Starting K3s environment")
+                k3s_env = K3sEnvironment(k3s_vars)
+                k3s_env.start(registry=STATE)
+
+            # =====================================================
+            # HEALTHCHECKS
+            # =====================================================
+            status_label.set_text("Waiting for stacks...")
+
+            targets = []
+
+            if docker_vars:
+                targets.append((
+                    docker_vars["GRAFANA_URL"],
+                    docker_vars["PROM_URL"]
+                ))
+
+            if k3s_vars:
+                targets.append((
+                    k3s_vars["GRAFANA_URL"],
+                    k3s_vars["PROM_URL"]
+                ))
+
+            for g, p in targets:
+
+                if cancel_event.is_set():
+                    raise Exception("Cancelled")
+
+                add_log(f"Healthcheck: {g} / {p}")
+
+                wait_for_stack(g, p)
+
+                add_log("Stack ready")
 
         # =====================================================
-        # HEALTHCHECKS (BLOCK UNTIL READY)
+        # BENCHMARK / ANALYZE
         # =====================================================
-        status_label.set_text("Waiting for stacks...")
-
-        targets = []
-        if docker_vars:
-            targets.append((docker_vars["GRAFANA_URL"], docker_vars["PROM_URL"]))
-        if k3s_vars:
-            targets.append((k3s_vars["GRAFANA_URL"], k3s_vars["PROM_URL"]))
-
-        for g, p in targets:
-            if cancel_event.is_set():
-                raise Exception("Cancelled")
-
-            add_log(f"Healthcheck: {g} / {p}")
-            wait_for_stack(g, p)
-            add_log("Stack ready")
-
-        # =====================================================
-        # BENCHMARK RUN
-        # =====================================================
-        status_label.set_text("Running benchmark...")
+        status_label.set_text(f"Running {mode}...")
 
         proc = subprocess.Popen(
             [
@@ -224,25 +251,33 @@ def worker():
         )
 
         while proc.poll() is None:
+
             if cancel_event.is_set():
+
                 add_log("Cancel requested -> killing benchmark")
+
                 proc.terminate()
                 proc.kill()
+
                 raise Exception("Cancelled")
+
             time.sleep(0.5)
 
-        add_log("Benchmark finished")
+        add_log(f"{mode} finished")
 
     except Exception as e:
+
         add_log(f"ERROR: {e}")
 
     finally:
+
         # =====================================================
-        # CLEANUP ALWAYS
+        # CLEANUP ONLY IF INFRA WAS STARTED
         # =====================================================
         status_label.set_text("Cleaning up...")
 
         try:
+
             if k3s_env:
                 k3s_env.stop()
 
@@ -250,6 +285,7 @@ def worker():
                 docker_env.stop()
 
         except Exception as e:
+
             add_log(f"Cleanup error: {e}")
 
         docker_env = None
@@ -258,6 +294,7 @@ def worker():
         benchmark_running = False
 
         status_label.set_text("Idle")
+
         add_log("Cleanup finished")
 
 

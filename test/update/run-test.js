@@ -5,7 +5,6 @@ import { fileURLToPath } from "url";
 
 import { waitForIdle } from "../load/shared/helpers/waitForIdle.js";
 import { cleanup } from "./shared/lifecycle/cleanup.js";
-import { cleanupChaos} from "./core/cleanup.js";
 
 import { runScenario } from "./core/scenario-runner.js";
 import {createUsers} from "./shared/lifecycle/create-users.js";
@@ -29,7 +28,7 @@ async function run() {
         throw new Error("Usage: node run-test.js <test> <env> <scenario> <runId>");
     }
 
-    console.log(`CHAOS RUN: ${scenarioName}`);
+    console.log(`Update RUN: ${scenarioName}`);
 
     let api;
 
@@ -67,12 +66,12 @@ async function run() {
 
         const testFile = path.join(
             ROOT,
-            "test/chaos/k6/load-test.js"
+            "test/update/k6/load-test.js"
         );
 
         const scenarioPath = path.join(
             ROOT,
-            "test/chaos/scenarios",
+            "test/update/scenarios",
             `${failureClass}`,
             `${scenarioName}.json`
         );
@@ -85,7 +84,7 @@ async function run() {
             ROOT,
             "results",
             envType,
-            "chaos",
+            "update",
             failureClass,
             scenarioName
         );
@@ -97,7 +96,7 @@ async function run() {
             `${scenarioName}_${runId}`
         );
 
-        const userFile = path.join(ROOT, "test/chaos/k6/users.json")
+        const userFile = path.join(ROOT, "test/update/k6/users.json")
 
         let users;
 
@@ -153,7 +152,6 @@ async function run() {
             console.log(`Running remote cleanup for env: ${envType}`);
 
             cleanup(envType);
-            cleanupChaos(envType);
 
         } catch (cleanupErr) {
             console.error("CLEANUP FAILED:", cleanupErr);
