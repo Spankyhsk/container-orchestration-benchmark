@@ -15,11 +15,11 @@ export async function cleanupKubernetes() {
 
     console.log("Cleaning Kubernetes chaos resources...");
 
-    runRemote(`
-kubectl delete podchaos --all -A --ignore-not-found
-kubectl delete networkchaos --all -A --ignore-not-found
-kubectl delete stresschaos --all -A --ignore-not-found
-`);
+    runRemote(
+        "kubectl delete podchaos --all -A --ignore-not-found; " +
+        "kubectl delete networkchaos --all -A --ignore-not-found; " +
+        "kubectl delete stresschaos --all -A --ignore-not-found"
+    );
 }
 
 export async function cleanupDocker() {

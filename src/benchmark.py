@@ -29,7 +29,6 @@ def run_benchmark(scenario, env, testType, run_id, testClass):
     # ---------------------------------------------------
     # 1. k6 TEST STARTEN
     # ---------------------------------------------------
-
     subprocess.run([
         "node",
         f"test/{testClass}/run-test.js",
@@ -45,7 +44,6 @@ def run_benchmark(scenario, env, testType, run_id, testClass):
     # ---------------------------------------------------
     # 2. ZEITFENSTER AUS ANNOTATIONS HOLEN
     # ---------------------------------------------------
-
     start, end = get_test_window(
         scenario=scenario,
         env=env,
@@ -61,7 +59,6 @@ def run_benchmark(scenario, env, testType, run_id, testClass):
     # ---------------------------------------------------
     # 3. PROMETHEUS EXPORT
     # ---------------------------------------------------
-
     export_metrics(
         env=env,
         scenario=scenario,
@@ -75,8 +72,8 @@ def run_benchmark(scenario, env, testType, run_id, testClass):
     print("\nBenchmark export finished")
 
     # ---------------------------------------------------
-    # 4. automatische analyze
-    # --------------------------------------------------
+    # 4. ANALYZE
+    # ---------------------------------------------------
     print("Generating analysis...")
 
     analyze_results(

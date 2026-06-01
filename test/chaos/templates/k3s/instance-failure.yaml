@@ -11,9 +11,9 @@ spec:
 
   selector:
     namespaces:
-      - default
+      - codetask
 
     labelSelectors:
-      app: {{K8S_LABEL}}
+      io.kompose.service: {{K8S_LABEL}}
 
   duration: "{{DURATION}}s"

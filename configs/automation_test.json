@@ -3,11 +3,11 @@
 
   "mode": "collect",
 
-  "envs": ["docker", "k3s"],
+  "envs": ["k3s"],
 
   "testClass": "load",
 
-  "scenarios": ["vorlesungen"],
+  "scenarios": ["login"],
 
   "testTypes": ["smoke"],
 

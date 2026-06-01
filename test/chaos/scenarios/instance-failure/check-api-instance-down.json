@@ -4,7 +4,7 @@
 
   "target": {
     "service": "check-api",
-    "k8sLabel": "app=check-api",
+    "k8sLabel": "check-api",
     "container": "re2:check-api"
   },
 

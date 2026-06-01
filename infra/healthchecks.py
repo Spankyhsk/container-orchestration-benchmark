@@ -1,40 +1,48 @@
 import time
 import requests
+import socket
 
 
 # =========================================================
-# BASIC HTTP CHECK
+# BASIC HTTP CHECK (ROBUST AGAINST SSH TUNNEL RACE)
 # =========================================================
-def wait_for_http(name: str, url: str, timeout: int = 60):
+def wait_for_http(name: str, url: str, timeout: int = 120):
     """
     HTTP endpoint must answer with 200
+    - handles SSH tunnel startup delays
+    - handles port-forward race conditions
     """
 
+    print(f"[WAIT] {name} -> {url}")
+
     start = time.time()
+    last_error = None
 
     while time.time() - start < timeout:
 
         try:
-            r = requests.get(url, timeout=3)
+            r = requests.get(url, timeout=5)
 
             if r.status_code == 200:
                 print(f"[OK] {name} ready -> {url}")
                 return True
 
-        except requests.exceptions.ConnectionError:
-            # klarer Hinweis: Service/Portforward noch nicht da
-            pass
+        except requests.exceptions.ConnectionError as e:
+            # THIS is expected during SSH tunnel startup
+            last_error = str(e)
 
         except Exception as e:
-            print(f"[WARN] {name} check error: {e}")
+            last_error = str(e)
 
-        time.sleep(1)
+        time.sleep(2)
 
-    raise TimeoutError(f"{name} not ready (timeout): {url}")
+    raise TimeoutError(
+        f"{name} not ready (timeout): {url} | last_error={last_error}"
+    )
 
 
 # =========================================================
-# PROMETHEUS METRICS CHECK (IMPROVED)
+# PROMETHEUS METRICS CHECK (UNCHANGED LOGIC, SAFER LOOP)
 # =========================================================
 def wait_for_prometheus_metrics(prom_url: str, timeout: int = 120):
     """
@@ -63,26 +71,22 @@ def wait_for_prometheus_metrics(prom_url: str, timeout: int = 120):
                     timeout=5
                 )
 
-                # ---- URL valid but no response?
                 if r.status_code != 200:
                     continue
 
                 data = r.json()
 
-                # safety checks (Prometheus can return partial/empty)
                 if "data" not in data:
                     continue
 
                 result = data["data"].get("result", [])
 
-                # IMPORTANT:
-                # Prometheus is only ready if at least 1 time series exists
                 if len(result) > 0:
                     print("[OK] Prometheus metrics ready")
                     return True
 
             except requests.exceptions.ConnectionError as e:
-                last_error = f"connection error: {e}"
+                last_error = str(e)
 
             except Exception as e:
                 last_error = str(e)
@@ -95,15 +99,16 @@ def wait_for_prometheus_metrics(prom_url: str, timeout: int = 120):
 
 
 # =========================================================
-# FULL STACK CHECK
+# FULL STACK CHECK (UI CALLS THIS - NO CHANGES REQUIRED)
 # =========================================================
 def wait_for_stack(grafana_url: str, prom_url: str):
     """
     Combined readiness check for Grafana + Prometheus
+    SAFE AGAINST SSH TUNNEL RACE CONDITIONS
     """
 
     # -----------------------------------------------------
-    # GRAFANA (IMPORTANT: real health endpoint)
+    # GRAFANA
     # -----------------------------------------------------
     print("Waiting for Grafana...")
 
@@ -113,17 +118,18 @@ def wait_for_stack(grafana_url: str, prom_url: str):
     )
 
     # -----------------------------------------------------
-    # PROMETHEUS API (basic reachability)
+    # PROMETHEUS BASIC READY CHECK
     # -----------------------------------------------------
     print("Waiting for Prometheus API...")
 
-    # FIXED: better endpoint for readiness
     wait_for_http(
         "Prometheus API",
         f"{prom_url}/-/ready"
     )
 
-    # fallback check (some setups only expose runtimeinfo)
+    # -----------------------------------------------------
+    # OPTIONAL runtimeinfo (non-blocking)
+    # -----------------------------------------------------
     try:
         wait_for_http(
             "Prometheus runtime",
@@ -134,8 +140,13 @@ def wait_for_stack(grafana_url: str, prom_url: str):
         print("[WARN] runtimeinfo not available, continuing...")
 
     # -----------------------------------------------------
-    # REAL METRICS CHECK
+    # IMPORTANT: give SSH tunnel / kube-proxy a small buffer
     # -----------------------------------------------------
-    #wait_for_prometheus_metrics(prom_url)
+    time.sleep(3)
+
+    # -----------------------------------------------------
+    # METRICS (kept optional because heavy)
+    # -----------------------------------------------------
+    # wait_for_prometheus_metrics(prom_url)
 
     print("Monitoring stack fully ready")

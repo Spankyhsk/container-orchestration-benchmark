@@ -267,6 +267,7 @@ def get_query(metric, env):
 
 def export_metrics(env, scenario, testType, run_id, testClass, start, end):
 
+    #if einbauen
     result_dir = f"results/{env}/{testClass}/{scenario}/{testType}"
 
     os.makedirs(result_dir, exist_ok=True)

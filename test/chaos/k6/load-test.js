@@ -24,16 +24,18 @@ export const options = {
     },
 };
 
-const testName = __ENV.TEST_NAME;
+const scenario = __ENV.TEST_NAME;
+const type = __ENV.TEST_TYPE;
+
 
 const thinkTime = [2, 5];
 
 const users = new SharedArray('users', () =>
-    JSON.parse(open(__ENV.USERS_PATH))
+    JSON.parse(open(__ENV.USER_PATH))
 );
 
 export function setup() {
-    annotate("START", "load-test", testName)
+    annotate("START", type, scenario)
 }
 
 export default function () {
@@ -344,5 +346,5 @@ export default function () {
 }
 
 export function teardown() {
-    annotate("END", "load-test", testName)
+    annotate("END", type, scenario)
 }

@@ -4,7 +4,7 @@
 
   "target": {
     "service": "api",
-    "k8sLabel": "app=api",
+    "k8sLabel": "api",
     "container": "re2:api"
   },
 

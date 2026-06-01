@@ -145,6 +145,8 @@ def aggregate_runs(files):
 # =================================================
 def run_aggregation(env, testClass, scenario, testType):
 
+
+    #if anweisung einbauen
     base_path = f"results/{env}/{testClass}/{scenario}/{testType}"
 
     pattern = os.path.join(base_path, "summary_*_final.json")

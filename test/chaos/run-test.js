@@ -20,9 +20,9 @@ const ROOT = path.resolve(__dirname, "..", "..");
 // =====================================================
 async function run() {
 
-    const failureClass = process.argv[2]; // instance-failure, network-degradation
+    const scenarioName = process.argv[2]; //api-instance-down, ...
     const envType = process.argv[3]; // docker || k3s
-    const scenarioName = process.argv[4]; //api-instance-down, ...
+    const failureClass = process.argv[4]; // instance-failure, network-degradation
     const runId = process.argv[5] || "0";
 
     if (!failureClass || !envType || !scenarioName) {
@@ -86,15 +86,15 @@ async function run() {
             "results",
             envType,
             "chaos",
-            failureClass,
-            scenarioName
+            scenarioName,
+            failureClass
         );
 
         fs.mkdirSync(resultDir, { recursive: true });
 
         const resultFile = path.join(
             resultDir,
-            `${scenarioName}_${runId}`
+            `${failureClass}_${runId}`
         );
 
         const userFile = path.join(ROOT, "test/chaos/k6/users.json")
@@ -103,17 +103,18 @@ async function run() {
 
         users = await createUsers({
             api,
-            count: 100
+            count: 50
         });
 
-        fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
+        fs.writeFileSync(userFile, JSON.stringify(users, null, 2));
 
         let k6Env = {
             ...process.env,
 
             TEST_NAME: scenarioName,
             USER_PATH: userFile,
-            RUNNUMBER: runId
+            RUNNUMBER: runId,
+            TEST_TYPE: failureClass
         }
 
         await waitForIdle({ api });

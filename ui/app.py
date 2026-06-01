@@ -19,6 +19,7 @@ if ROOT not in sys.path:
 from infra.environments import DockerEnvironment, K3sEnvironment
 from infra.healthchecks import wait_for_stack
 from infra.registry import ConnectionState
+from infra.prometheus_reset import reset_prometheus
 
 # =========================================================
 # CONFIG
@@ -200,6 +201,15 @@ def worker():
                 docker_env.start(registry=STATE)
 
             if k3s_vars:
+                add_log("=== RESET PROMETHEUS (k3s) BEFORE TUNNEL ===")
+
+                reset_prometheus()
+
+                add_log("Prometheus reset complete")
+
+                # kleine Stabilisierung (wichtig!)
+                time.sleep(5)
+
                 add_log("Starting K3s environment")
                 k3s_env = K3sEnvironment(k3s_vars)
                 k3s_env.start(registry=STATE)

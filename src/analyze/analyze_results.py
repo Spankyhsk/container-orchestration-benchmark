@@ -205,6 +205,7 @@ def extract_soak_trends(base, testType, run_id):
 # =================================================
 def analyze_results(scenario, env, testType, run_id, testClass, startTime, endTime):
 
+    #if einbauen
     base = f"results/{env}/{testClass}/{scenario}/{testType}"
 
     result = {
