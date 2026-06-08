@@ -2,10 +2,7 @@ import json
 import pandas as pd
 import os
 
-from src.evaluation.scoring import (
-    calculate_load_score,
-    calculate_soak_score
-)
+from src.evaluation.scoring import calculate_score_by_type
 from src.evaluation.recommendations import generate_recommendations
 
 
@@ -139,20 +136,6 @@ def load_k6_raw(path):
 # =================================================
 # SCORE ROUTER
 # =================================================
-def calculate_score_by_type(testClass, testType, result):
-
-    if testClass == "load":
-
-        if testType == "soak":
-            return calculate_soak_score(result)
-
-        return calculate_load_score(result)
-
-    if testClass in ["chaos", "update"]:
-        return calculate_load_score(result)
-
-    return calculate_load_score(result)
-
 
 # =================================================
 # TREND ANALYSIS (IMPROVED)
@@ -199,6 +182,74 @@ def extract_soak_trends(base, testType, run_id):
 
     return trends
 
+def process_chaos_metrics(summary_path, recovery_path):
+    """
+    CHAOS POST PROCESSOR
+
+    Diese Funktion ist bewusst getrennt vom normalen
+    Analyseprozess, weil Chaos-spezifische Metriken:
+
+    - recovery time
+    - availability
+    - post-failure stability
+
+    NICHT Teil von Load/Soak sind.
+    """
+
+    import json
+
+    result = {}
+
+    # =====================================================
+    # 1. LOAD K6 SUMMARY
+    # =====================================================
+
+    if os.path.exists(summary_path):
+        with open(summary_path, "r", encoding="utf-8") as f:
+            summary = json.load(f)
+    else:
+        summary = {}
+
+    # =====================================================
+    # 2. LOAD RECOVERY RESULT
+    # =====================================================
+
+    if os.path.exists(recovery_path):
+        with open(recovery_path, "r", encoding="utf-8") as f:
+            recovery = json.load(f)
+    else:
+        recovery = {}
+
+    # =====================================================
+    # 3. RECOVERY TIME (CORE CHAOS METRIC)
+    # =====================================================
+
+    result["recoveryTimeMs"] = recovery.get("recoveryTimeMs")
+
+    # =====================================================
+    # 4. AVAILABILITY RATE (aus k6 Summary)
+    # =====================================================
+
+    metrics = summary.get("metrics", {})
+    http_reqs = metrics.get("http_reqs", {})
+    http_failed = metrics.get("http_req_failed", {})
+
+    total = http_reqs.get("count", 0)
+    failed = http_failed.get("value", 0)
+
+    if total > 0:
+        result["availability_rate"] = (total - failed) / total
+    else:
+        result["availability_rate"] = None
+
+    # =====================================================
+    # 5. FAULT INDICATOR (optional erweitert)
+    # =====================================================
+
+    result["failed_requests"] = failed
+    result["total_requests"] = total
+
+    return result
 
 # =================================================
 # MAIN ANALYSIS
@@ -283,6 +334,21 @@ def analyze_results(scenario, env, testType, run_id, testClass, startTime, endTi
         result.update(extract_soak_trends(base, testType, run_id))
 
     # -------------------------------------------------
+    # CHAOS EXTENSION (nur wenn chaos test)
+    # -------------------------------------------------
+
+    if testClass == "chaos":
+
+        recovery_path = f"{base}/{testType}_{run_id}_recovery.json"
+
+        chaos_metrics = process_chaos_metrics(
+            summary_path,
+            recovery_path
+        )
+
+        result.update(chaos_metrics)
+
+    # -------------------------------------------------
     # SCORE
     # -------------------------------------------------
     result["reliability_score"] = calculate_score_by_type(
@@ -299,6 +365,95 @@ def analyze_results(scenario, env, testType, run_id, testClass, startTime, endTi
     # -------------------------------------------------
     # SAVE
     # -------------------------------------------------
+    output = f"{base}/summary_{run_id}_final.json"
+
+    with open(output, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2)
+
+    print(f"Saved summary: {output}")
+
+def analyze_update_results(
+        scenario,
+        env,
+        testType,
+        run_id,
+        testClass
+):
+    """
+    UPDATE TEST ANALYSIS (LEAN VERSION)
+
+    - NO Prometheus / Grafana dependency
+    - OPTIONAL chaos metrics (recovery + availability)
+    - FULLY k6-driven
+    """
+
+    base = f"results/{env}/{testClass}/{scenario}/{testType}"
+
+    result = {
+        "environment": env,
+        "scenario": scenario,
+        "testType": testType,
+        "testClass": testClass,
+        "run": run_id
+    }
+
+    # =================================================
+    # K6 SUMMARY (PRIMARY SOURCE)
+    # =================================================
+    summary_path = f"{base}/{testType}_{run_id}_summary.json"
+    raw_path = f"{base}/{testType}_{run_id}_raw.json"
+
+    result.update(load_k6_summary(summary_path))
+    result["raw_events"] = len(load_k6_raw(raw_path))
+
+    # =================================================
+    # BASIC DERIVED METRICS
+    # =================================================
+    total = result.get("requests_total") or 0
+    failed_rate = result.get("error_rate") or 0
+
+    result["success_rate"] = (1 - failed_rate) if total > 0 else None
+
+    latency_avg = result.get("latency_avg")
+    latency_p95 = result.get("latency_p95")
+
+    result["latency_spread"] = (
+        (latency_p95 - latency_avg)
+        if latency_avg and latency_p95
+        else None
+    )
+
+    # =================================================
+    # OPTIONAL CHAOS METRICS (SAFE)
+    # =================================================
+    recovery_path = f"{base}/{testType}_{run_id}_recovery.json"
+
+    chaos_metrics = process_chaos_metrics(
+        summary_path,
+        recovery_path
+    )
+
+    # nur hinzufügen wenn wirklich etwas da ist
+    if chaos_metrics:
+        result.update(chaos_metrics)
+
+    # =================================================
+    # SCORE (UPDATE MODE)
+    # =================================================
+    result["reliability_score"] = calculate_score_by_type(
+        testClass,
+        testType,
+        result
+    )
+
+    # =================================================
+    # RECOMMENDATIONS
+    # =================================================
+    result["recommendations"] = generate_recommendations(result)
+
+    # =================================================
+    # SAVE
+    # =================================================
     output = f"{base}/summary_{run_id}_final.json"
 
     with open(output, "w", encoding="utf-8") as f:

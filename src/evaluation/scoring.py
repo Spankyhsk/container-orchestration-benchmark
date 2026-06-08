@@ -1,301 +1,163 @@
+# =================================================
+# SCORE ROUTER
+# =================================================
+def calculate_score_by_type(testClass, testType, result):
+
+    if testClass == "load":
+
+        if testType == "soak":
+            return calculate_soak_score(result)
+
+        return calculate_load_score(result)
+
+    if testClass == "chaos":
+        return calculate_chaos_reliability_score(result)
+
+    return calculate_load_score(result)
+
 def calculate_load_score(summary):
 
-    # -------------------------------------------------
-    # Startwert für den Reliability Score
+    # =================================================
+    # RELIABILITY-FIRST SCORING MODEL
     #
-    # Das System startet immer mit 100 Punkten.
-    # Schlechte Performance oder Instabilität
-    # ziehen Punkte ab.
-    # -------------------------------------------------
+    # Fokus:
+    # 1. Fehler & Instabilität (wichtigste Ebene)
+    # 2. System-/Node-Stabilität
+    # 3. Container-Stabilität
+    # 4. Ressourcenstress
+    # 5. Performance (nur indirekt!)
+    # =================================================
 
     score = 100
 
     # =================================================
-    # LATENCY (Antwortzeiten)
+    # 1. ERROR RATE (HIGHEST IMPACT)
     # =================================================
-    #
-    # Es wird die p95-Latenz geprüft.
-    #
-    # p95 bedeutet:
-    # 95 % aller Requests waren schneller
-    # als dieser Wert.
-    #
-    # Hohe Latenzen bedeuten:
-    # - langsame APIs
-    # - Überlastung
-    # - schlechte Skalierung
-    #
-    # Latenz ist eines der wichtigsten
-    # Performance-Signale.
-    # =================================================
-
-    latency_p95 = summary.get("latency_p95")
-
-    if latency_p95 is not None:
-
-        if latency_p95 > 1200:
-            score -= 30
-
-        elif latency_p95 > 800:
-            score -= 15
-
-        elif latency_p95 > 400:
-            score -= 5
-
-    # =================================================
-    # ERROR RATE (Fehlerrate)
-    # =================================================
-    #
-    # Prüft den Anteil fehlgeschlagener Requests.
-    #
-    # Beispiel:
-    # 0.05 = 5 % Fehler
-    #
-    # Viele Fehler bedeuten:
-    # - Instabilität
-    # - Timeouts
-    # - Crashes
-    # - Überlastung
-    #
-    # Fehler sind der wichtigste
-    # Reliability-Indikator.
-    # =================================================
-
     error_rate = summary.get("error_rate")
 
     if error_rate is not None:
 
         if error_rate > 0.05:
-            score -= 40
-
+            score -= 45
         elif error_rate > 0.01:
-            score -= 20
-
+            score -= 25
         elif error_rate > 0:
-            score -= 5
-
-    # =================================================
-    # CONTAINER CPU USAGE
-    # =================================================
-    #
-    # Prüft die maximale CPU-Auslastung
-    # aller Container relativ zur
-    # verfügbaren Cluster-/Host-Kapazität.
-    #
-    # Werte:
-    # 1.0 = 100 % CPU-Auslastung
-    #
-    # Hohe CPU-Auslastung kann zu:
-    # - längeren Antwortzeiten
-    # - throttling
-    # - Instabilität
-    # führen.
-    #
-    # CPU ist wichtig, aber weniger kritisch
-    # als Fehler oder Speicherprobleme.
-    # =================================================
-
-    cpu_max = summary.get("cpu_max")
-
-    if cpu_max is not None:
-
-        if cpu_max > 0.95:
-            score -= 15
-
-        elif cpu_max > 0.85:
             score -= 10
 
-        elif cpu_max > 0.70:
-            score -= 5
-
     # =================================================
-    # CONTAINER MEMORY USAGE
+    # 2. CONTAINER RESTARTS (STABILITY FAILURE)
     # =================================================
-    #
-    # Prüft die maximale RAM-Auslastung
-    # aller Container relativ zur
-    # verfügbaren Cluster-/Host-Kapazität.
-    #
-    # Hohe RAM-Auslastung kann:
-    # - OOMKills verursachen
-    # - Container abstürzen lassen
-    # - Swapping auslösen
-    #
-    # Memory-Probleme sind oft kritischer
-    # als CPU-Probleme.
-    # =================================================
+    restarts = summary.get("restarts")
 
-    memory_max = summary.get("memory_max")
+    if restarts is not None:
 
-    if memory_max is not None:
-
-        if memory_max > 0.95:
+        if restarts >= 5:
+            score -= 35
+        elif restarts >= 3:
             score -= 20
-
-        elif memory_max > 0.85:
+        elif restarts >= 1:
             score -= 10
 
-        elif memory_max > 0.75:
-            score -= 5
-
     # =================================================
-    # NODE CPU USAGE
+    # 3. NODE MEMORY (CRITICAL INFRASTRUCTURE SIGNAL)
     # =================================================
-    #
-    # Prüft die CPU-Auslastung
-    # der Kubernetes- oder Docker-Nodes.
-    #
-    # Hohe Node-CPU bedeutet:
-    # - gesamter Host ist ausgelastet
-    # - Scheduling-Probleme möglich
-    # - alle Container betroffen
-    #
-    # Node CPU erkennt Infrastruktur-
-    # Überlastung.
-    # =================================================
-
-    node_cpu_max = summary.get("node_cpu_max")
-
-    if node_cpu_max is not None:
-
-        if node_cpu_max > 0.90:
-            score -= 10
-
-        elif node_cpu_max > 0.80:
-            score -= 5
-
-        elif node_cpu_max > 0.70:
-            score -= 2
-
-    # =================================================
-    # NODE MEMORY USAGE
-    # =================================================
-    #
-    # Prüft den RAM-Verbrauch der Nodes.
-    #
-    # Hohe Auslastung kann:
-    # - Pod Evictions verursachen
-    # - Instabilität im Cluster erzeugen
-    # - OOMKills triggern
-    #
-    # Node Memory ist besonders kritisch,
-    # da der gesamte Cluster betroffen sein kann.
-    # =================================================
-
     node_memory_max = summary.get("node_memory_max")
 
     if node_memory_max is not None:
 
         if node_memory_max > 0.95:
-            score -= 15
-
+            score -= 20
         elif node_memory_max > 0.85:
-            score -= 8
-
+            score -= 10
         elif node_memory_max > 0.75:
+            score -= 5
+
+    # =================================================
+    # 4. NODE CPU (INFRA STABILITY)
+    # =================================================
+    node_cpu_max = summary.get("node_cpu_max")
+
+    if node_cpu_max is not None:
+
+        if node_cpu_max > 0.90:
+            score -= 12
+        elif node_cpu_max > 0.80:
+            score -= 6
+        elif node_cpu_max > 0.70:
             score -= 3
 
     # =================================================
-    # NODE LOAD
+    # 5. NODE LOAD (WEAK SUPPORT SIGNAL)
     # =================================================
-    #
-    # System Load zeigt:
-    # wie viele Prozesse auf CPU warten.
-    #
-    # Der Wert ist bereits pro CPU-Core
-    # normalisiert und daher zwischen
-    # Docker und Kubernetes vergleichbar.
-    #
-    # Hoher Load bedeutet:
-    # - CPU Überlastung
-    # - Scheduling Engpässe
-    # - Wartende Prozesse
-    #
-    # Node Load ist ein unterstützendes
-    # Infrastruktur-Signal und wird daher
-    # schwächer gewichtet.
-    # =================================================
-
     node_load_max = summary.get("node_load_max")
 
     if node_load_max is not None:
 
         if node_load_max > 1.20:
             score -= 5
-
         elif node_load_max > 1.00:
             score -= 3
-
         elif node_load_max > 0.80:
             score -= 1
 
     # =================================================
-    # CONTAINER RESTARTS
+    # 6. CONTAINER CPU (STRESS, NOT FAILURE)
     # =================================================
-    #
-    # Prüft wie oft Container oder Pods
-    # neu gestartet wurden.
-    #
-    # Gründe für Restarts:
-    # - CrashLoopBackOff
-    # - OOMKilled
-    # - Node instability
-    # - Deployment issues
-    #
-    # Viele Restarts bedeuten:
-    # - Instabile Anwendung
-    # - Cluster Probleme
-    #
-    # Restarts sind ein starker
-    # Reliability-Indikator.
+    cpu_max = summary.get("cpu_max")
+
+    if cpu_max is not None:
+
+        if cpu_max > 0.95:
+            score -= 12
+        elif cpu_max > 0.85:
+            score -= 6
+        elif cpu_max > 0.70:
+            score -= 3
+
     # =================================================
+    # 7. CONTAINER MEMORY (CRITICAL BUT BELOW NODE)
+    # =================================================
+    memory_max = summary.get("memory_max")
 
-    restarts = summary.get("restarts")
+    if memory_max is not None:
 
-    if restarts is not None:
-
-        if restarts >= 5:
-            score -= 30
-
-        elif restarts >= 3:
-            score -= 20
-
-        elif restarts >= 1:
+        if memory_max > 0.95:
+            score -= 18
+        elif memory_max > 0.85:
             score -= 10
+        elif memory_max > 0.75:
+            score -= 5
 
     # =================================================
-    # THROUGHPUT (leichtes Signal)
+    # 8. LATENCY (REDUCED IMPACT - ONLY USER IMPACT)
     # =================================================
-    #
-    # Prüft Requests pro Sekunde.
-    #
-    # Niedriger Throughput bedeutet nicht
-    # automatisch schlechte Reliability,
-    # da kleine Tests bewusst wenig Last
-    # erzeugen können.
-    #
-    # Daher wird Throughput nur sehr
-    # schwach gewichtet.
-    # =================================================
+    latency_p95 = summary.get("latency_p95")
 
+    if latency_p95 is not None:
+
+        # nur noch "impact indicator", nicht system failure
+        if latency_p95 > 1500:
+            score -= 8
+        elif latency_p95 > 800:
+            score -= 4
+        elif latency_p95 > 400:
+            score -= 1
+
+    # =================================================
+    # 9. THROUGHPUT (MINIMAL SIGNAL)
+    # =================================================
     requests_rate = summary.get("requests_rate")
 
     if requests_rate is not None:
 
         if requests_rate < 1:
             score -= 2
-
         elif requests_rate < 3:
             score -= 1
 
     # =================================================
     # FINAL SCORE
     # =================================================
-    #
-    # Score wird nie negativ.
-    # Minimum ist 0.
-    # =================================================
-
     return max(score, 0)
 
 def calculate_soak_score(summary):
@@ -365,3 +227,163 @@ def calculate_soak_score(summary):
         score += 5  # kleines Stabilitäts-Reward
 
     return max(min(score, 100), 0)
+
+def calculate_chaos_reliability_score(summary):
+    """
+    CHAOS RELIABILITY SCORE (0–100)
+
+    Fokus NICHT auf Performance,
+    sondern auf System-Resilienz:
+
+    1. Availability (funktioniert das System überhaupt?)
+    2. Fault Tolerance (wie stark bricht es unter Fehlern?)
+    3. Recovery (wie schnell erholt es sich?)
+    4. Stability after recovery (bleibt es stabil?)
+
+    Ziel:
+    Ein System ist "gut", wenn es
+    - Fehler überlebt
+    - sich schnell erholt
+    - danach stabil bleibt
+    """
+
+    score = 100
+
+    # =====================================================
+    # 1. AVAILABILITY (WICHTIGSTER BASISFAKTOR)
+    # =====================================================
+    #
+    # Warum:
+    # Chaos ist irrelevant, wenn System nicht erreichbar ist.
+    # Verfügbarkeit ist die Grundvoraussetzung für Reliability.
+    #
+    # Beispiel:
+    # - API down → massiver Abzug
+    # - teilweise Fehler → moderater Abzug
+    # =====================================================
+
+    availability = summary.get("availability_rate")  # 0..1
+
+    if availability is not None:
+
+        if availability < 0.90:
+            score -= 50  # System größtenteils unbrauchbar
+
+        elif availability < 0.98:
+            score -= 25
+
+        elif availability < 0.995:
+            score -= 10
+
+    # =====================================================
+    # 2. RECOVERY TIME (KERN DER CHAOS ENGINEERING)
+    # =====================================================
+    #
+    # Warum:
+    # Ein resilientes System heilt sich schnell selbst.
+    #
+    # Interpretation:
+    # - < 5s    → exzellent
+    # - < 15s   → gut
+    # - < 30s   → akzeptabel
+    # - > 30s   → kritisch
+    #
+    # Gewichtung: sehr hoch
+    # =====================================================
+
+    recovery_time_ms = summary.get("recoveryTimeMs")
+
+    if recovery_time_ms is not None:
+
+        if recovery_time_ms > 30000:
+            score -= 40
+
+        elif recovery_time_ms > 15000:
+            score -= 25
+
+        elif recovery_time_ms > 5000:
+            score -= 10
+
+    # =====================================================
+    # 3. FAULT TOLERANCE (FEHLERVERHALTEN)
+    # =====================================================
+    #
+    # Warum:
+    # Ein gutes System:
+    # - crasht nicht sofort
+    # - degradiert kontrolliert
+    #
+    # schlechte Systeme:
+    # - komplette Ausfälle bei Teilfehlern
+    #
+    # =====================================================
+
+    error_rate = summary.get("error_rate")
+
+    if error_rate is not None:
+
+        if error_rate > 0.10:
+            score -= 35  # System bricht stark unter Fehlerlast
+
+        elif error_rate > 0.05:
+            score -= 20
+
+        elif error_rate > 0.01:
+            score -= 10
+
+    # =====================================================
+    # 4. STABILITY AFTER RECOVERY
+    # =====================================================
+    #
+    # Warum:
+    # Klassischer Chaos Failure:
+    # → System "kommt zurück"
+    # → bleibt aber instabil
+    #
+    # Gute Systeme stabilisieren sich vollständig.
+    # =====================================================
+
+    post_error_rate = summary.get("post_recovery_error_rate")
+
+    if post_error_rate is not None:
+
+        if post_error_rate > 0.02:
+            score -= 15
+
+        elif post_error_rate > 0.005:
+            score -= 8
+
+    post_latency = summary.get("post_recovery_latency_p95")
+
+    if post_latency is not None:
+
+        if post_latency > 1000:
+            score -= 10
+
+        elif post_latency > 500:
+            score -= 5
+
+    # =====================================================
+    # 5. PARTIAL DEGRADATION vs HARD FAILURE
+    # =====================================================
+    #
+    # Warum:
+    # Sehr wichtig für Chaos Engineering:
+    #
+    # - Soft failure (teilweise Fehler) → ok
+    # - Hard failure (kompletter Ausfall) → schlecht
+    #
+    # Wenn du später erweiterst:
+    # Hier kannst du "graceful degradation" messen.
+    # =====================================================
+
+    hard_failure = summary.get("hard_failure")  # boolean
+
+    if hard_failure is True:
+        score -= 25
+
+    # =====================================================
+    # FINAL SCORE
+    # =====================================================
+
+    return max(score, 0)

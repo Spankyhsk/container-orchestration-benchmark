@@ -8,7 +8,7 @@ import {think} from "../shared/helpers/helpers.js";
 
 export const options = {
     vus: 50,
-    duration: "15m",
+    duration: "10m",
     thresholds: {
         "http_req_duration": [
             "p(95)<800",
@@ -35,7 +35,9 @@ const users = new SharedArray('users', () =>
 );
 
 export function setup() {
-    annotate("START", type, scenario)
+    if(type !== "update"){
+        annotate("START", type, scenario)
+    }
 }
 
 export default function () {
@@ -346,5 +348,8 @@ export default function () {
 }
 
 export function teardown() {
-    annotate("END", type, scenario)
+    if(type !== "update"){
+        annotate("END", type, scenario)
+    }
+
 }

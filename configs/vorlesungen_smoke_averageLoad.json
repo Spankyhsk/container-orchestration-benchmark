@@ -9,7 +9,7 @@
 
   "scenarios": ["vorlesungen"],
 
-  "testTypes": ["smoke", "averageLoad"],
+  "testTypes": ["stress"],
 
   "runsPerTest": 3,
 

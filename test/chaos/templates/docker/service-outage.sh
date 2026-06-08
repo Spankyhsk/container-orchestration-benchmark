@@ -1,1 +1,1 @@
-docker stop {{CONTAINER}}
+docker exec {{CONTAINER}} sh -c 'kill -SEGV 1'

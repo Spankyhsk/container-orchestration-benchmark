@@ -4,13 +4,13 @@
 
   "target": {
     "service": "api",
-    "k8sLabel": "app=api",
-    "container": "re2:api"
+    "k8sLabel": "api",
+    "container": "teamprojekt_api_1"
   },
 
   "mode": "all",
 
   "chaos": {
-    "duration": 40
+    "duration": 1
   }
 }

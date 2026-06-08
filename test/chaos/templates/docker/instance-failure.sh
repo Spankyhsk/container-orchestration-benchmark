@@ -1,5 +1,1 @@
-docker run --rm \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  gaiaadm/pumba \
-  kill \
-  {{CONTAINER}}
+docker exec {{CONTAINER}} sh -c 'kill -SEGV 1'

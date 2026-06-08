@@ -26,7 +26,5 @@ export async function cleanupDocker() {
 
     console.log("Cleaning Docker chaos resources...");
 
-    runRemote(`
-docker rm -f $(docker ps -aq --filter ancestor=gaiaadm/pumba) 2>/dev/null || true
-`);
+    runRemote(`cd ~/teamprojekt && docker compose down && docker compose up -d`);
 }

@@ -5,7 +5,7 @@
   "target": {
     "service": "api",
     "k8sLabel": "api",
-    "container": "re2:api"
+    "container": "teamprojekt_api_1"
   },
 
   "mode": "one",

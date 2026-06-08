@@ -1,6 +1,6 @@
 {
-  "name": "check-api-instance-down",
-  "failureClass": "INSTANCE_FAILURE",
+  "name": "check-api-outage",
+  "failureClass": "SERVICE_OUTAGE",
 
   "target": {
     "service": "check-api",
@@ -8,9 +8,9 @@
     "container": "teamprojekt_check-api_1"
   },
 
-  "mode": "one",
+  "mode": "all",
 
   "chaos": {
-    "duration": 30
+    "duration": 1
   }
 }

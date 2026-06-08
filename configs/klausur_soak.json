@@ -13,7 +13,7 @@
 
   "runsPerTest": 1,
 
-  "sleepSeconds": 30,
+  "sleepSeconds": 60,
 
   "scenarioCooldownSeconds": 0
 }

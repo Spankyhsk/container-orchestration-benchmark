@@ -4,7 +4,6 @@ export const API = (baseUrl) => {
 
     const apiBase = `http://api.${baseUrl}`;
     const aiBase = `http://ai-api.${baseUrl}`;
-    const frontendBase = `http://${baseUrl}`;
 
     return {
         setup: {
@@ -23,6 +22,11 @@ export const API = (baseUrl) => {
 
         health: async () => {
             return await axios.get(`${apiBase}/health/ready`);
+        },
+        ai:{
+            health: async () => {
+                return await axios.get(`${aiBase}/health/ready`);
+            },
         }
     };
 };

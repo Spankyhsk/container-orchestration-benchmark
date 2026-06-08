@@ -1,0 +1,11 @@
+{
+  "name": "ai-api-update",
+  "failureClass": "UPDATE",
+
+  "target": {
+    "service": "ai-api",
+    "k8sLabel": "ai-api",
+    "container": "teamprojekt_ai-api_1"
+  }
+
+}

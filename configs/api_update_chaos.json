@@ -1,9 +1,9 @@
 {
-  "name": "testo",
+  "name": "API UPDATE Chaos Test",
 
   "mode": "collect",
 
-  "envs": ["k3s"],
+  "envs": ["docker","k3s"],
 
   "testClass": "chaos",
 
@@ -11,9 +11,9 @@
 
   "testTypes": ["update"],
 
-  "runsPerTest": 1,
+  "runsPerTest": 3,
 
-  "sleepSeconds": 5,
+  "sleepSeconds": 30,
 
   "scenarioCooldownSeconds": 0
 }

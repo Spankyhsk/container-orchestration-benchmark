@@ -1,0 +1,1 @@
+cd ~/teamprojekt && bash webhook.sh

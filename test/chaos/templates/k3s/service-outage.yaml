@@ -3,16 +3,18 @@ kind: PodChaos
 
 metadata:
   name: {{NAME}}
+  namespace: chaos-testing
 
 spec:
-  action: pod-failure
+  action: pod-kill
+
   mode: {{MODE}}
 
   selector:
     namespaces:
-      - default
+      - codetask
 
     labelSelectors:
-      app: {{K8S_LABEL}}
+      io.kompose.service: {{K8S_LABEL}}
 
   duration: "{{DURATION}}s"

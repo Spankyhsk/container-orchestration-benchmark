@@ -122,46 +122,13 @@ if ($mode -ne "analyze")
 }
 
 # =========================================
-# AGGREGATION
+# ANALYSIS PHASE (REPLACES aggregation + comparison)
 # =========================================
 if ($mode -ne "collect")
 {
-    foreach ($env in $config.envs)
-    {
-        foreach ($scenario in $config.scenarios)
-        {
-            foreach ($testType in $config.testTypes)
-            {
-                python -c "from src.evaluation.aggregator import run_aggregation; run_aggregation('$env', '$($config.testClass)', '$scenario', '$testType')"
-            }
-        }
-    }
-}
+    Write-Host "=== RUN ANALYSIS PIPELINE ==="
 
-# =========================================
-# COMPARISON
-# =========================================
-if ($mode -ne "collect")
-{
-    foreach ($scenario in $config.scenarios)
-    {
-        foreach ($testType in $config.testTypes)
-        {
-            $dockerPath = "results/docker/$($config.testClass)/$scenario/$testType/aggregate.json"
-            $k3sPath    = "results/k3s/$($config.testClass)/$scenario/$testType/aggregate.json"
-            $outputDir  = "results/final_comparison/$scenario/$testType"
-
-            python -c "
-from src.comparison.comparator import compare_group
-
-compare_group(
-    '$dockerPath',
-    '$k3sPath',
-    '$outputDir'
-)
-"
-        }
-    }
+    python -m src.run_analysis --config $configPath
 }
 
 # =========================================

@@ -6,3 +6,4 @@ export function randomBetween(min, max) {
 export function think(thinkTime) {
     sleep(randomBetween(thinkTime[0], thinkTime[1]));
 }
+

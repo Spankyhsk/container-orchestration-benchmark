@@ -1,0 +1,1 @@
+kubectl rollout restart deployment {{SERVICE}} -n {{NAMESPACE}}
