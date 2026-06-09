@@ -1,6 +1,9 @@
 # =================================================
 # SCORE ROUTER
 # =================================================
+from ftplib import error_reply
+
+
 def calculate_score_by_type(testClass, testType, result):
 
     if testClass == "load":
@@ -229,66 +232,68 @@ def calculate_soak_score(summary):
     return max(min(score, 100), 0)
 
 def calculate_chaos_reliability_score(summary):
-    """
-    CHAOS RELIABILITY SCORE (0–100)
-
-    Fokus NICHT auf Performance,
-    sondern auf System-Resilienz:
-
-    1. Availability (funktioniert das System überhaupt?)
-    2. Fault Tolerance (wie stark bricht es unter Fehlern?)
-    3. Recovery (wie schnell erholt es sich?)
-    4. Stability after recovery (bleibt es stabil?)
-
-    Ziel:
-    Ein System ist "gut", wenn es
-    - Fehler überlebt
-    - sich schnell erholt
-    - danach stabil bleibt
-    """
 
     score = 100
 
     # =====================================================
-    # 1. AVAILABILITY (WICHTIGSTER BASISFAKTOR)
+    # 1. AVAILABILITY (gesamt Funktionsfähigkeit)
     # =====================================================
     #
-    # Warum:
-    # Chaos ist irrelevant, wenn System nicht erreichbar ist.
-    # Verfügbarkeit ist die Grundvoraussetzung für Reliability.
+    # availability = 1 - error_rate
     #
-    # Beispiel:
-    # - API down → massiver Abzug
-    # - teilweise Fehler → moderater Abzug
+    # beantwortet: "wie oft hat das System korrekt geantwortet?"
     # =====================================================
 
-    availability = summary.get("availability_rate")  # 0..1
+    availability = summary.get("availability")
 
     if availability is not None:
 
         if availability < 0.90:
-            score -= 50  # System größtenteils unbrauchbar
+            score -= 45
 
-        elif availability < 0.98:
-            score -= 25
+        elif availability < 0.97:
+            score -= 20
 
-        elif availability < 0.995:
+        elif availability < 0.99:
+            score -= 8
+
+    # =====================================================
+    # 2. ERROR RATE (FALLBACK + STRESS SIGNAL)
+    # =====================================================
+    #
+    # Wichtig:
+    # Error Rate ist nicht nur "Teil von Availability",
+    # sondern zeigt auch:
+    # - wie instabil das System war
+    # - wie stark es unter Last versagt hat
+    # =====================================================
+    error_rate = summary.get("error_rate")
+
+    if error_rate is not None:
+
+        if error_rate > 0.10:
+            score -= 35
+
+        elif error_rate > 0.05:
+            score -= 20
+
+        elif error_rate > 0.01:
             score -= 10
 
     # =====================================================
-    # 2. RECOVERY TIME (KERN DER CHAOS ENGINEERING)
+    # 3. RECOVERY (HARTE BEDINGUNG)
     # =====================================================
-    #
-    # Warum:
-    # Ein resilientes System heilt sich schnell selbst.
-    #
-    # Interpretation:
-    # - < 5s    → exzellent
-    # - < 15s   → gut
-    # - < 30s   → akzeptabel
-    # - > 30s   → kritisch
-    #
-    # Gewichtung: sehr hoch
+
+    recovered = summary.get("recovered")
+
+    if recovered is False:
+        return 0
+
+    if recovered is None:
+        score -= 15
+
+    # =====================================================
+    # 4. RECOVERY TIME
     # =====================================================
 
     recovery_time_ms = summary.get("recoveryTimeMs")
@@ -301,86 +306,8 @@ def calculate_chaos_reliability_score(summary):
         elif recovery_time_ms > 15000:
             score -= 25
 
-        elif recovery_time_ms > 5000:
+        elif recovery_time_ms > 7000:
             score -= 10
-
-    # =====================================================
-    # 3. FAULT TOLERANCE (FEHLERVERHALTEN)
-    # =====================================================
-    #
-    # Warum:
-    # Ein gutes System:
-    # - crasht nicht sofort
-    # - degradiert kontrolliert
-    #
-    # schlechte Systeme:
-    # - komplette Ausfälle bei Teilfehlern
-    #
-    # =====================================================
-
-    error_rate = summary.get("error_rate")
-
-    if error_rate is not None:
-
-        if error_rate > 0.10:
-            score -= 35  # System bricht stark unter Fehlerlast
-
-        elif error_rate > 0.05:
-            score -= 20
-
-        elif error_rate > 0.01:
-            score -= 10
-
-    # =====================================================
-    # 4. STABILITY AFTER RECOVERY
-    # =====================================================
-    #
-    # Warum:
-    # Klassischer Chaos Failure:
-    # → System "kommt zurück"
-    # → bleibt aber instabil
-    #
-    # Gute Systeme stabilisieren sich vollständig.
-    # =====================================================
-
-    post_error_rate = summary.get("post_recovery_error_rate")
-
-    if post_error_rate is not None:
-
-        if post_error_rate > 0.02:
-            score -= 15
-
-        elif post_error_rate > 0.005:
-            score -= 8
-
-    post_latency = summary.get("post_recovery_latency_p95")
-
-    if post_latency is not None:
-
-        if post_latency > 1000:
-            score -= 10
-
-        elif post_latency > 500:
-            score -= 5
-
-    # =====================================================
-    # 5. PARTIAL DEGRADATION vs HARD FAILURE
-    # =====================================================
-    #
-    # Warum:
-    # Sehr wichtig für Chaos Engineering:
-    #
-    # - Soft failure (teilweise Fehler) → ok
-    # - Hard failure (kompletter Ausfall) → schlecht
-    #
-    # Wenn du später erweiterst:
-    # Hier kannst du "graceful degradation" messen.
-    # =====================================================
-
-    hard_failure = summary.get("hard_failure")  # boolean
-
-    if hard_failure is True:
-        score -= 25
 
     # =====================================================
     # FINAL SCORE

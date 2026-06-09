@@ -225,29 +225,21 @@ def process_chaos_metrics(summary_path, recovery_path):
     # =====================================================
 
     result["recoveryTimeMs"] = recovery.get("recoveryTimeMs")
+    result["recovered"] = recovery.get("recovered")
 
     # =====================================================
     # 4. AVAILABILITY RATE (aus k6 Summary)
     # =====================================================
 
     metrics = summary.get("metrics", {})
-    http_reqs = metrics.get("http_reqs", {})
     http_failed = metrics.get("http_req_failed", {})
 
-    total = http_reqs.get("count", 0)
-    failed = http_failed.get("value", 0)
+    error_rate = http_failed.get("value", 0)
 
-    if total > 0:
-        result["availability_rate"] = (total - failed) / total
+    if error_rate > 0:
+        result["availability"] = 1 - error_rate
     else:
-        result["availability_rate"] = None
-
-    # =====================================================
-    # 5. FAULT INDICATOR (optional erweitert)
-    # =====================================================
-
-    result["failed_requests"] = failed
-    result["total_requests"] = total
+        result["availability"] = None
 
     return result
 

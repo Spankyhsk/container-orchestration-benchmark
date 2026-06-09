@@ -1,58 +1,58 @@
 import json
 import os
 
-from src.evaluation.scoring import calculate_score_by_type
-from src.evaluation.recommendations import generate_recommendations
-
-
 # =================================================
 # RE-SCORE EXISTING RESULT FILE
 # =================================================
-def rescore_existing_result(
-        summary_path,
-        testClass,
-        testType
-):
-    """
-    Lädt ein bereits fertiges Analyse-JSON,
-    berechnet Score + Recommendations neu
-    und überschreibt die Datei.
-
-    Zweck:
-    - Scoring kann iterativ angepasst werden
-    - keine erneuten Tests nötig
-    - perfekt für Chaos/Load Score Tuning
-    """
+def rescore_existing_result(summary_path, testClass, testType):
 
     if not os.path.exists(summary_path):
-        raise FileNotFoundError(f"Missing file: {summary_path}")
+        raise FileNotFoundError(summary_path)
 
-    # -------------------------------------------------
-    # LOAD EXISTING RESULT
-    # -------------------------------------------------
+    # =================================================
+    # LOAD META FROM FILE
+    # =================================================
     with open(summary_path, "r", encoding="utf-8") as f:
-        result = json.load(f)
+        old = json.load(f)
 
-    # -------------------------------------------------
-    # SCORE RECOMPUTE
-    # -------------------------------------------------
-    result["reliability_score"] = calculate_score_by_type(
-        testClass,
-        testType,
-        result
-    )
+    scenario = old.get("scenario")
+    env = old.get("environment")
+    run_id = old.get("run")
+    startTime = old.get("startTime")
+    endTime = old.get("endTime")
 
-    # -------------------------------------------------
-    # RECOMMENDATIONS RECOMPUTE
-    # -------------------------------------------------
-    result["recommendations"] = generate_recommendations(result)
+    # =================================================
+    # RE-RUN FULL ANALYSIS PIPELINE
+    # =================================================
 
-    # -------------------------------------------------
-    # SAVE (overwrite same file)
-    # -------------------------------------------------
+    if testClass == "update":
+
+        result = analyze_update_results(
+            scenario=scenario,
+            env=env,
+            testType=testType,
+            run_id=run_id,
+            testClass=testClass
+        )
+
+    else:
+
+        result = analyze_results(
+            scenario=scenario,
+            env=env,
+            testType=testType,
+            run_id=run_id,
+            testClass=testClass,
+            startTime=startTime,
+            endTime=endTime
+        )
+
+    # =================================================
+    # OVERWRITE FILE
+    # =================================================
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
 
-    print(f"[RESCORE] updated: {summary_path}")
+    print(f"[RESCORE] re-analyzed: {summary_path}")
 
     return result
